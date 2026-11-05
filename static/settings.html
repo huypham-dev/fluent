@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
+    <title>TextActions Settings</title>
+    <style>
+      :root { color-scheme: light dark; --muted: #6b6b70; }
+      @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a6; } }
+      * { box-sizing: border-box; }
+      body { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 16px; font: 14px/1.4 system-ui, sans-serif; }
+      label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
+      label.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
+      input[type='text'], select { width: 100%; padding: 6px 8px; font: inherit; font-weight: 400; }
+      .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+      #status { font-size: 12px; color: var(--muted); }
+      button { padding: 4px 12px; font: inherit; }
+    </style>
+  </head>
+  <body>
+    <label>Hotkey <select id="hotkey"></select></label>
+    <label>Model <select id="model"></select></label>
+    <label>Claude CLI path <input id="cliPath" type="text" spellcheck="false" /></label>
+    <label>Primary language <input id="primaryLanguage" type="text" /></label>
+    <label>Secondary language <input id="secondaryLanguage" type="text" /></label>
+    <label class="inline"><input id="autoBar" type="checkbox" /> Show the icon bar after selecting with the mouse</label>
+    <div class="row">
+      <button id="editStyle" type="button">Edit Style…</button>
+      <span id="status" role="status"></span>
+      <button id="save" type="button">Save</button>
+    </div>
+    <script src="settings.js"></script>
+  </body>
+</html>

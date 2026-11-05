@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
+    <title>TextActions</title>
+    <style>
+      :root { color-scheme: light dark; --muted: #6b6b70; --error: #c62828; --border: #c9c9ce; }
+      @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a6; --error: #ff8a80; --border: #48484d; } }
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; flex-direction: column; gap: 8px; padding: 12px; font: 14px/1.4 system-ui, sans-serif; }
+      [hidden] { display: none !important; }
+      #session { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
+      h1 { margin: 0; font-size: 13px; font-weight: 600; }
+      textarea { flex: 1; min-height: 0; padding: 8px; font: inherit; resize: none; border: 1px solid var(--border); border-radius: 6px; }
+      input { width: 100%; padding: 7px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; }
+      .row { display: flex; align-items: center; gap: 8px; }
+      #hint { flex: 1; font-size: 12px; color: var(--muted); }
+      #error { flex: 1; max-height: 60px; overflow: auto; font-size: 12px; color: var(--error); user-select: text; }
+      button { padding: 4px 12px; font: inherit; font-size: 13px; }
+      #message { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 16px; text-align: center; }
+      #message-detail { color: var(--muted); }
+    </style>
+  </head>
+  <body>
+    <div id="session" hidden>
+      <h1 id="title"></h1>
+      <textarea id="result" aria-label="Result"></textarea>
+      <div class="row" id="error-row" hidden>
+        <div id="error"></div>
+        <button id="retry" type="button">Retry</button>
+        <button id="error-settings" type="button">Open Settings</button>
+      </div>
+      <input id="input" type="text" />
+      <div class="row">
+        <div id="hint"></div>
+        <button id="copy" type="button">Copy</button>
+      </div>
+    </div>
+    <div id="message" hidden>
+      <h1 id="message-title"></h1>
+      <div id="message-detail"></div>
+      <button id="message-button" type="button" hidden></button>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
