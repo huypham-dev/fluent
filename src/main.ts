@@ -24,6 +24,7 @@ import { defaultCliPath, runCli } from './cliGenerator';
 import { logEvent, logPath } from './diagnostics';
 import { electronClipboard } from './electronClipboard';
 import { activateApp, frontmostBundleId, shouldRefocus } from './macFrontApp';
+import { LEGACY_DATA_FOLDER, migrateLegacyData } from './migrateLegacyData';
 import { createSelectionDetector, type MouseInfo, type Point } from './selectionDetector';
 import { HOTKEYS, loadSettings, MODELS, parseSettings, saveSettings, type Settings } from './settings';
 import { StyleStore } from './styleStore';
@@ -513,8 +514,12 @@ if (!app.requestSingleInstanceLock()) {
   registerIpc();
 
   void app.whenReady().then(() => {
+    const migration = migrateLegacyData(join(app.getPath('appData'), LEGACY_DATA_FOLDER), app.getPath('userData'));
     settings = loadSettings(settingsPath(), defaults);
     logEvent('started', { platform: process.platform, arch: process.arch, version: app.getVersion() });
+    if (migration.copied.length || migration.failed.length) {
+      logEvent('legacy-data-migrated', { copied: migration.copied.join(','), failed: migration.failed.join(',') });
+    }
     // On macOS, text fields get their editing shortcuts from the main menu.
     Menu.setApplicationMenu(isMac ? Menu.buildFromTemplate([{ role: 'editMenu' }]) : null);
     installStyleTemplateOnce();

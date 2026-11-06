@@ -81,6 +81,15 @@ detects a selection.
 The app does not update itself. To update, run the install command again, or download
 and install the latest release.
 
+### Updating from TextActions
+
+Fluent was called TextActions before version 0.0.2. Fluent installs as a new app and
+copies your settings and style file the first time it opens. Afterward:
+
+1. Quit TextActions and remove it. On macOS, delete it from Applications. On Windows,
+   uninstall it under Settings > Apps.
+2. On macOS, turn on Fluent under System Settings > Privacy & Security > Accessibility.
+
 ## Build from source
 
 Building requires Node.js and npm:
