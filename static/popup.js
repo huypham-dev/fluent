@@ -5,19 +5,62 @@ const input = $('input');
 
 let view = null;
 let lastPhase = null;
+let copied = false;
 
 const isGenerating = () => view?.state?.phase === 'generating';
 const canCopy = () => view?.kind === 'session' && !isGenerating() && result.value.trim() !== '';
 
 function copy() {
-  if (canCopy()) api.copy(result.value);
+  if (copied || !canCopy()) return;
+  copied = true;
+  api.copy(result.value);
+  renderCopyState();
+}
+
+function renderHint(keys) {
+  $('hint').replaceChildren(
+    ...keys.map(([key, label]) => {
+      const item = document.createElement('span');
+      const kbd = document.createElement('kbd');
+      kbd.textContent = key;
+      item.append(kbd, label);
+      return item;
+    }),
+  );
+}
+
+function renderStatus() {
+  const status = $('status');
+  const generating = isGenerating();
+  status.hidden = !generating && !copied;
+  status.classList.toggle('copied', copied);
+  status.replaceChildren();
+  if (copied) {
+    status.textContent = 'Copied to clipboard';
+  } else if (generating) {
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    status.append(dot, 'Writing…');
+  }
+}
+
+function renderCopyState() {
+  const button = $('copy');
+  button.disabled = !copied && !canCopy();
+  button.classList.toggle('copied', copied);
+  $('copy-icon').setAttribute('href', copied ? '#i-check' : '#i-copy');
+  $('copy-label').textContent = copied ? 'Copied' : 'Copy';
+  renderStatus();
 }
 
 function renderSession() {
-  const { state, title, editable, inputLabel } = view;
+  const { state, title, editable, inputLabel, action } = view;
   const generating = state.phase === 'generating';
+  if (generating) copied = false;
   $('title').textContent = title;
+  $('title-icon').setAttribute('href', `#i-${action}`);
   input.placeholder = inputLabel;
+  result.placeholder = state.phase === 'failed' ? 'No result yet.' : '';
   result.readOnly = generating || !editable;
 
   // Edits live in the text area, so only generation updates may replace its content.
@@ -32,12 +75,12 @@ function renderSession() {
   $('retry').hidden = needsSettings;
   $('error-settings').hidden = !needsSettings;
 
-  $('copy').disabled = !canCopy();
-  $('hint').textContent = generating
-    ? 'Writing…'
-    : editable
-      ? '⏎ Copy · ⇧⏎ New line · esc Close'
-      : 'esc Close';
+  renderCopyState();
+  renderHint(
+    editable && canCopy()
+      ? [['⏎', 'Copy'], ['⇧⏎', 'New line'], ['esc', 'Close']]
+      : [['esc', 'Close']],
+  );
 
   if (lastPhase === 'generating' && state.phase === 'ready') {
     (editable ? result : input).focus();
@@ -48,6 +91,7 @@ function renderSession() {
 function renderMessage() {
   $('message-title').textContent = view.title;
   $('message-detail').textContent = view.detail;
+  $('message-icon').setAttribute('href', view.button === 'accessibility' ? '#i-lock' : '#i-alert');
   const button = $('message-button');
   button.hidden = !view.button;
   button.textContent = view.button === 'accessibility' ? 'Open System Settings' : 'Open Settings';
@@ -64,7 +108,7 @@ api.onView((next) => {
 
 result.addEventListener('input', () => {
   api.edit(result.value);
-  $('copy').disabled = !canCopy();
+  renderCopyState();
 });
 
 result.addEventListener('keydown', (event) => {
@@ -88,6 +132,8 @@ window.addEventListener('keydown', (event) => {
 });
 
 $('copy').addEventListener('click', copy);
+$('close').addEventListener('click', () => api.close());
+$('message-close').addEventListener('click', () => api.close());
 $('retry').addEventListener('click', () => api.retry());
 $('error-settings').addEventListener('click', () => api.openSettings());
 $('message-button').addEventListener('click', () => {

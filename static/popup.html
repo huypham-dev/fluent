@@ -6,43 +6,136 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
     <title>TextActions</title>
     <style>
-      :root { color-scheme: light dark; --muted: #6b6b70; --error: #c62828; --border: #c9c9ce; }
-      @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a6; --error: #ff8a80; --border: #48484d; } }
+      :root {
+        color-scheme: light dark;
+        --bg: #fbfbfa;
+        --field: #ffffff;
+        --line: rgba(0, 0, 0, 0.11);
+        --text: #1d1d1f;
+        --muted: #6b6b70;
+        --accent: #2f6fed;
+        --on-accent: #ffffff;
+        --accent-soft: rgba(47, 111, 237, 0.11);
+        --error-bg: #fdeeee;
+        --error: #b3261e;
+        --success: #1b7f4b;
+        --key: rgba(0, 0, 0, 0.06);
+        --hover: rgba(0, 0, 0, 0.05);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #242427;
+          --field: #1b1b1e;
+          --line: rgba(255, 255, 255, 0.12);
+          --text: #f2f2f4;
+          --muted: #a3a3a9;
+          --accent: #5b8ff5;
+          --accent-soft: rgba(91, 143, 245, 0.2);
+          --error-bg: #3a2223;
+          --error: #ff9d94;
+          --success: #6fd49c;
+          --key: rgba(255, 255, 255, 0.1);
+          --hover: rgba(255, 255, 255, 0.08);
+        }
+      }
       * { box-sizing: border-box; }
-      html, body { height: 100%; margin: 0; }
-      body { display: flex; flex-direction: column; gap: 8px; padding: 12px; font: 14px/1.4 system-ui, sans-serif; }
       [hidden] { display: none !important; }
-      #session { display: flex; flex-direction: column; gap: 8px; flex: 1; min-height: 0; }
-      h1 { margin: 0; font-size: 13px; font-weight: 600; }
-      textarea { flex: 1; min-height: 0; padding: 8px; font: inherit; resize: none; border: 1px solid var(--border); border-radius: 6px; }
-      input { width: 100%; padding: 7px 8px; font: inherit; border: 1px solid var(--border); border-radius: 6px; }
-      .row { display: flex; align-items: center; gap: 8px; }
-      #hint { flex: 1; font-size: 12px; color: var(--muted); }
-      #error { flex: 1; max-height: 60px; overflow: auto; font-size: 12px; color: var(--error); user-select: text; }
-      button { padding: 4px 12px; font: inherit; font-size: 13px; }
-      #message { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 16px; text-align: center; }
-      #message-detail { color: var(--muted); }
+      html, body { height: 100%; margin: 0; }
+      body { display: flex; flex-direction: column; padding: 14px; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+
+      /* The window is frameless, so the header and the message view move it. */
+      .header, #message { -webkit-app-region: drag; }
+      button, .error-row { -webkit-app-region: no-drag; }
+
+      svg.icon { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+      #session { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 0; }
+      .header { display: flex; align-items: center; gap: 8px; min-height: 24px; }
+      h1 { margin: 0; font-size: 13px; font-weight: 500; }
+      .badge { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 7px; background: var(--accent-soft); color: var(--accent); font-size: 15px; }
+      #status { display: flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12px; color: var(--muted); }
+      #status.copied { color: var(--success); }
+      .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: 0.25; } }
+      @media (prefers-reduced-motion: reduce) { .dot { animation: none; } }
+
+      textarea, .input-field { background: var(--field); border: 1px solid var(--line); border-radius: 10px; color: var(--text); }
+      textarea { flex: 1; min-height: 0; padding: 10px 12px; font: inherit; resize: none; outline: none; }
+      textarea::placeholder, input::placeholder { color: var(--muted); }
+      .input-field { display: flex; align-items: center; gap: 8px; flex: none; height: 36px; padding: 0 12px; color: var(--muted); font-size: 15px; }
+      input { flex: 1; min-width: 0; padding: 0; border: 0; outline: none; background: transparent; color: var(--text); font: 13px -apple-system, system-ui, sans-serif; }
+      textarea:focus, .input-field:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+
+      button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex: none; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: 500 13px -apple-system, system-ui, sans-serif; cursor: pointer; }
+      button:hover { background: var(--hover); }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      button.primary { border-color: transparent; background: var(--accent); color: var(--on-accent); }
+      button.primary:hover { filter: brightness(1.08); background: var(--accent); }
+      button.primary:disabled { opacity: 0.45; cursor: default; filter: none; }
+      button.primary.copied { border-color: var(--line); background: transparent; color: var(--success); opacity: 1; }
+      #close, #message-close { width: 24px; height: 24px; padding: 0; border: 0; color: var(--muted); font-size: 14px; }
+      #message-close { position: absolute; top: 14px; right: 14px; }
+      #status + #close { margin-left: 2px; }
+      #status[hidden] + #close { margin-left: auto; }
+
+      .error-row { display: flex; align-items: center; gap: 8px; flex: none; padding: 8px 10px; border-radius: 10px; background: var(--error-bg); color: var(--error); font-size: 12px; }
+      .error-row svg.icon { font-size: 16px; }
+      #error { flex: 1; max-height: 60px; overflow: auto; user-select: text; }
+      .error-row button { color: inherit; }
+
+      .footer { display: flex; align-items: center; gap: 10px; flex: none; font-size: 12px; color: var(--muted); }
+      #hint { display: flex; flex: 1; flex-wrap: wrap; gap: 10px; min-width: 0; }
+      kbd { margin-right: 3px; padding: 1px 5px; border-radius: 4px; background: var(--key); font: 11px -apple-system, system-ui, sans-serif; }
+
+      #message { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 1; padding: 0 32px; text-align: center; }
+      #message h1 { font-size: 15px; }
+      #message .badge { width: 40px; height: 40px; border-radius: 12px; font-size: 22px; }
+      #message-detail { color: var(--muted); font-size: 13px; user-select: text; }
+      #message-button { margin-top: 4px; }
     </style>
   </head>
   <body>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-draft" viewBox="0 0 24 24"><path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" /><path d="M13.5 6.5l4 4" /></symbol>
+      <symbol id="i-explain" viewBox="0 0 24 24"><path d="M3 12h1m8 -9v1m8 8h1m-15.4 -6.4l.7 .7m12.1 -.7l-.7 .7" /><path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0 -1 3a2 2 0 0 1 -4 0a3.5 3.5 0 0 0 -1 -3" /><path d="M9.7 17l4.6 0" /></symbol>
+      <symbol id="i-translate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M3.6 9h16.8" /><path d="M3.6 15h16.8" /><path d="M11.5 3a17 17 0 0 0 0 18" /><path d="M12.5 3a17 17 0 0 1 0 18" /></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><path d="M7 9.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" /><path d="M4.012 16.737a2.005 2.005 0 0 1 -1.012 -1.737v-10c0 -1.1 .9 -2 2 -2h10c.75 0 1.158 .385 1.5 1" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10" /></symbol>
+      <symbol id="i-close" viewBox="0 0 24 24"><path d="M18 6l-12 12" /><path d="M6 6l12 12" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><path d="M5 13a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v6a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2v-6z" /><path d="M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0" /><path d="M8 11v-4a4 4 0 1 1 8 0v4" /></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z" /></symbol>
+    </svg>
+
     <div id="session" hidden>
-      <h1 id="title"></h1>
+      <div class="header">
+        <div class="badge"><svg class="icon" aria-hidden="true"><use id="title-icon" href="#i-draft" /></svg></div>
+        <h1 id="title"></h1>
+        <div id="status" role="status" hidden></div>
+        <button id="close" type="button" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close" /></svg></button>
+      </div>
       <textarea id="result" aria-label="Result"></textarea>
-      <div class="row" id="error-row" hidden>
+      <div class="error-row" id="error-row" hidden>
+        <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
         <div id="error"></div>
         <button id="retry" type="button">Retry</button>
         <button id="error-settings" type="button">Open Settings</button>
       </div>
-      <input id="input" type="text" />
-      <div class="row">
+      <div class="input-field">
+        <svg class="icon" aria-hidden="true"><use href="#i-sparkles" /></svg>
+        <input id="input" type="text" />
+      </div>
+      <div class="footer">
         <div id="hint"></div>
-        <button id="copy" type="button">Copy</button>
+        <button id="copy" class="primary" type="button"><svg class="icon" aria-hidden="true"><use id="copy-icon" href="#i-copy" /></svg><span id="copy-label">Copy</span></button>
       </div>
     </div>
     <div id="message" hidden>
+      <button id="message-close" type="button" aria-label="Close" title="Close"><svg class="icon" aria-hidden="true"><use href="#i-close" /></svg></button>
+      <div class="badge"><svg class="icon" aria-hidden="true"><use id="message-icon" href="#i-alert" /></svg></div>
       <h1 id="message-title"></h1>
       <div id="message-detail"></div>
-      <button id="message-button" type="button" hidden></button>
+      <button id="message-button" class="primary" type="button" hidden></button>
     </div>
     <script src="popup.js"></script>
   </body>

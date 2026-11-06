@@ -30,6 +30,7 @@ import { StyleStore } from './styleStore';
 import { HII_PATTERN, renderPattern } from './trayIcon';
 
 const BAR_SIZE = { width: 132, height: 40 };
+const COPIED_CLOSE_DELAY_MS = 450;
 const BAR_TIMEOUT_MS = 4000;
 const HOTKEY_KEY_GRACE_MS = 600;
 const PERMISSION_POLL_MS = 2000;
@@ -43,6 +44,7 @@ const isMac = process.platform === 'darwin';
 type PopupView =
   | {
       kind: 'session';
+      action: ActionId;
       title: string;
       editable: boolean;
       inputLabel: string;
@@ -288,10 +290,10 @@ function startSession(action: ActionId, selectedText: string): void {
   session = current;
   current.onChange = (state) => {
     if (session !== current) return;
-    view = { kind: 'session', title, editable, inputLabel, state };
+    view = { kind: 'session', action, title, editable, inputLabel, state };
     sendView();
   };
-  view = { kind: 'session', title, editable, inputLabel, state: current.state };
+  view = { kind: 'session', action, title, editable, inputLabel, state: current.state };
   openPopup();
   current.start();
 }
@@ -336,6 +338,7 @@ function openPopup(): void {
     height: 340,
     minWidth: 380,
     minHeight: 240,
+    frame: false,
     show: false,
     title: 'TextActions',
     alwaysOnTop: true,
@@ -440,7 +443,11 @@ function registerIpc(): void {
   ipcMain.on('popup:copy', (_event, text: unknown) => {
     if (typeof text !== 'string' || !text.trim() || session?.state.phase === 'generating') return;
     clipboard.writeText(text);
-    popup?.close();
+    // Leave the "Copied" confirmation on screen briefly before closing.
+    const copiedSession = session;
+    setTimeout(() => {
+      if (session === copiedSession) popup?.close();
+    }, COPIED_CLOSE_DELAY_MS);
   });
   ipcMain.on('popup:close', () => popup?.close());
   ipcMain.on('popup:open-settings', () => openSettings());
