@@ -47,9 +47,9 @@ Or download the installer for your computer:
 
 | Computer | Download |
 |---|---|
-| Mac with Apple silicon (M1 or later) | [Fluent-0.0.3-arm64.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.3/Fluent-0.0.3-arm64.dmg) |
-| Mac with an Intel processor | [Fluent-0.0.3.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.3/Fluent-0.0.3.dmg) |
-| Windows (64-bit) | [Fluent.Setup.0.0.3.exe](https://github.com/huypham-dev/fluent/releases/download/v0.0.3/Fluent.Setup.0.0.3.exe) |
+| Mac with Apple silicon (M1 or later) | [Fluent-0.0.4-arm64.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.4/Fluent-0.0.4-arm64.dmg) |
+| Mac with an Intel processor | [Fluent-0.0.4.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.4/Fluent-0.0.4.dmg) |
+| Windows (64-bit) | [Fluent.Setup.0.0.4.exe](https://github.com/huypham-dev/fluent/releases/download/v0.0.4/Fluent.Setup.0.0.4.exe) |
 
 Newer versions, if any, are on the [latest release](https://github.com/huypham-dev/fluent/releases/latest) page.
 
