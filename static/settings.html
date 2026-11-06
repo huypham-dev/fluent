@@ -6,30 +6,184 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'" />
     <title>Fluent Settings</title>
     <style>
-      :root { color-scheme: light dark; --muted: #6b6b70; }
-      @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a6; } }
+      :root {
+        color-scheme: light dark;
+        --bg: #fbfbfa;
+        --field: #ffffff;
+        --control: #fbfbfa;
+        --line: rgba(0, 0, 0, 0.11);
+        --text: #1d1d1f;
+        --muted: #6b6b70;
+        --accent: #2f6fed;
+        --on-accent: #ffffff;
+        --accent-soft: rgba(47, 111, 237, 0.11);
+        --error-bg: #fdeeee;
+        --error: #b3261e;
+        --success: #1b7f4b;
+        --hover: rgba(0, 0, 0, 0.05);
+        --switch-off: rgba(0, 0, 0, 0.2);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #242427;
+          --field: #2c2c30;
+          --control: #1b1b1e;
+          --line: rgba(255, 255, 255, 0.12);
+          --text: #f2f2f4;
+          --muted: #a3a3a9;
+          --accent: #5b8ff5;
+          --accent-soft: rgba(91, 143, 245, 0.2);
+          --error-bg: #3a2223;
+          --error: #ff9d94;
+          --success: #6fd49c;
+          --hover: rgba(255, 255, 255, 0.08);
+          --switch-off: rgba(255, 255, 255, 0.22);
+        }
+      }
       * { box-sizing: border-box; }
-      body { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 16px; font: 14px/1.4 system-ui, sans-serif; }
-      label { display: flex; flex-direction: column; gap: 4px; font-weight: 500; }
-      label.inline { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
-      input[type='text'], select { width: 100%; padding: 6px 8px; font: inherit; font-weight: 400; }
-      .row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
-      #status { font-size: 12px; color: var(--muted); }
-      button { padding: 4px 12px; font: inherit; }
+      [hidden] { display: none !important; }
+      html, body { height: 100%; margin: 0; }
+      body { background: var(--bg); color: var(--text); font: 13px/1.4 -apple-system, system-ui, sans-serif; }
+      form { display: flex; flex-direction: column; height: 100%; }
+
+      svg.icon { width: 1em; height: 1em; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+      main { display: flex; flex-direction: column; gap: 16px; flex: 1; min-height: 0; padding: 16px; overflow-y: auto; }
+      h2 { margin: 0 0 6px 2px; font-size: 12px; font-weight: 500; color: var(--muted); }
+      .card { background: var(--field); border: 1px solid var(--line); border-radius: 10px; }
+
+      .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 44px; padding: 9px 12px; }
+      .row + .row { border-top: 1px solid var(--line); }
+      .row.stacked { flex-direction: column; align-items: stretch; gap: 6px; }
+      .text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+      .text label, .text .name { font-weight: 500; }
+      .help { font-size: 12px; color: var(--muted); }
+
+      .control, input[type='text'].control { flex: none; width: 196px; }
+      input[type='text'], select { width: 100%; height: 30px; padding: 0 9px; border: 1px solid var(--line); border-radius: 8px; outline: none; background: var(--control); color: var(--text); font: 13px -apple-system, system-ui, sans-serif; }
+      input[type='text']:focus, select:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+      input[aria-invalid='true'] { border-color: var(--error); }
+      input.path { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+      .select { position: relative; display: block; }
+      select { padding-right: 26px; appearance: none; cursor: pointer; }
+      .select svg.icon { position: absolute; top: 9px; right: 9px; color: var(--muted); font-size: 12px; pointer-events: none; }
+
+      /* A checkbox drawn as a switch, so it keeps its keyboard and screen reader behavior. */
+      input[role='switch'] { flex: none; position: relative; width: 34px; height: 20px; margin: 0; border-radius: 10px; appearance: none; background: var(--switch-off); cursor: pointer; transition: background 0.12s; }
+      input[role='switch']::before { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #ffffff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3); transition: transform 0.12s; }
+      input[role='switch']:checked { background: var(--accent); }
+      input[role='switch']:checked::before { transform: translateX(14px); }
+      input[role='switch']:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      @media (prefers-reduced-motion: reduce) { input[role='switch'], input[role='switch']::before { transition: none; } }
+
+      button { display: inline-flex; align-items: center; justify-content: center; flex: none; height: 30px; padding: 0 12px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--text); font: 500 13px -apple-system, system-ui, sans-serif; cursor: pointer; }
+      button:hover { background: var(--hover); }
+      button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+      button.primary { min-width: 72px; border-color: transparent; background: var(--accent); color: var(--on-accent); }
+      button.primary:hover { filter: brightness(1.08); background: var(--accent); }
+      button.primary:disabled { opacity: 0.45; cursor: default; filter: none; }
+
+      .notice { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 10px; background: var(--error-bg); color: var(--error); font-size: 12px; }
+      .notice svg.icon { font-size: 16px; }
+
+      footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; padding: 10px 16px; border-top: 1px solid var(--line); }
+      #status { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 12px; color: var(--muted); }
+      #status.saved { color: var(--success); }
+      #status.error { color: var(--error); }
     </style>
   </head>
   <body>
-    <label>Hotkey <select id="hotkey"></select></label>
-    <label>Draft reply and Translate model <select id="model"></select></label>
-    <label>Claude CLI path <input id="cliPath" type="text" spellcheck="false" /></label>
-    <label>Primary language <input id="primaryLanguage" type="text" /></label>
-    <label>Secondary language <input id="secondaryLanguage" type="text" /></label>
-    <label class="inline"><input id="autoBar" type="checkbox" /> Show the icon bar after selecting with the mouse</label>
-    <div class="row">
-      <button id="editStyle" type="button">Edit Style…</button>
-      <span id="status" role="status"></span>
-      <button id="save" type="button">Save</button>
-    </div>
+    <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="M6 9l6 6l6 -6" /></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12l5 5l10 -10" /></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 18 0a9 9 0 0 0 -18 0" /><path d="M12 8v4" /><path d="M12 16h.01" /></symbol>
+    </svg>
+
+    <form id="form" novalidate>
+      <main>
+        <div class="notice" id="hook-notice" role="alert" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#i-alert" /></svg>
+          <span>Mouse monitoring is not running, so the icon bar only appears with the hotkey.</span>
+        </div>
+
+        <section aria-labelledby="heading-selection">
+          <h2 id="heading-selection">Selection</h2>
+          <div class="card">
+            <div class="row">
+              <div class="text">
+                <label for="hotkey">Hotkey</label>
+                <span class="help" id="hotkey-help">Shows the icon bar for selected text.</span>
+              </div>
+              <span class="select control">
+                <select id="hotkey" aria-describedby="hotkey-help"></select>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+              </span>
+            </div>
+            <div class="row">
+              <div class="text">
+                <label for="autoBar">Show icon bar automatically</label>
+                <span class="help" id="autoBar-help">Appears after you select text with the mouse.</span>
+              </div>
+              <input id="autoBar" type="checkbox" role="switch" aria-describedby="autoBar-help" />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="heading-languages">
+          <h2 id="heading-languages">Languages</h2>
+          <div class="card">
+            <div class="row">
+              <div class="text">
+                <label for="primaryLanguage">Primary language</label>
+                <span class="help" id="primary-help">Used for explanations and translations.</span>
+              </div>
+              <input class="control" id="primaryLanguage" type="text" aria-describedby="primary-help" />
+            </div>
+            <div class="row">
+              <div class="text">
+                <label for="secondaryLanguage">Secondary language</label>
+                <span class="help" id="secondary-help">Text in your primary language is translated into this one.</span>
+              </div>
+              <input class="control" id="secondaryLanguage" type="text" aria-describedby="secondary-help" />
+            </div>
+          </div>
+        </section>
+
+        <section aria-labelledby="heading-ai">
+          <h2 id="heading-ai">AI</h2>
+          <div class="card">
+            <div class="row">
+              <div class="text">
+                <label for="model">Model</label>
+                <span class="help" id="model-help">For Draft reply and Translate. Explain always uses Haiku.</span>
+              </div>
+              <span class="select control">
+                <select id="model" aria-describedby="model-help"></select>
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron" /></svg>
+              </span>
+            </div>
+            <div class="row">
+              <div class="text">
+                <span class="name">Reply style</span>
+                <span class="help">Describe how your drafted replies should sound.</span>
+              </div>
+              <button id="editStyle" type="button">Edit Style…</button>
+            </div>
+            <div class="row stacked">
+              <div class="text">
+                <label for="cliPath">Claude CLI path</label>
+              </div>
+              <input class="path" id="cliPath" type="text" spellcheck="false" autocapitalize="off" autocomplete="off" />
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <div id="status" role="status"></div>
+        <button id="save" class="primary" type="submit" disabled>Save</button>
+      </footer>
+    </form>
     <script src="settings.js"></script>
   </body>
 </html>

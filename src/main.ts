@@ -398,8 +398,9 @@ function openSettings(): void {
     return;
   }
   const window = new BrowserWindow({
-    width: 460,
-    height: 460,
+    width: 500,
+    height: 670,
+    show: false,
     resizable: false,
     title: 'Fluent Settings',
     alwaysOnTop: true,
@@ -411,8 +412,12 @@ function openSettings(): void {
   window.on('closed', () => {
     settingsWindow = null;
   });
+  // Showing it only once painted avoids a white flash in dark mode.
+  window.once('ready-to-show', () => {
+    window.show();
+    app.focus({ steal: true });
+  });
   void window.loadFile(staticFile('settings.html'));
-  app.focus({ steal: true });
 }
 
 function editStyle(): void {
