@@ -12,6 +12,9 @@ describe.runIf(process.env.FLUENT_LIVE === '1')('live CLI', () => {
     ['explain', 'The deployment failed because of a race condition in the migration.'],
     ['translate', 'Please let me know when the deployment is finished.'],
     ['translate', 'Bạn gửi link PR giúp mình nhé.'],
+    ['translate', 'The deployment failed because of a race condition in the migration, so we rolled back and cleared the cache. Please rebase your branch before you merge.'],
+    ['translate', 'Our Q3 churn went up, so the team is rethinking the onboarding funnel and the pricing tiers.'],
+    ['translate', 'Mình đã deploy bản fix lên staging rồi, bạn test lại rồi merge PR giúp mình nhé.'],
   ])('%s: %s', async (action, selectedText) => {
     const start = Date.now();
     let text = '';

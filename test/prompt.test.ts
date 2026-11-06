@@ -73,6 +73,22 @@ describe('systemPrompt', () => {
     expect(prompt).toContain('Output only the translation');
   });
 
+  it('keeps technical terms, names, and code untranslated in translations', () => {
+    const prompt = systemPrompt('translate', languages);
+    expect(prompt).toContain('Keep technical and specialized terms in their original form');
+    expect(prompt).toContain('If you are not sure, keep the original term');
+    expect(prompt).toContain('Never translate product names, code, commands');
+  });
+
+  it('asks for natural translations rather than word-for-word ones', () => {
+    expect(systemPrompt('translate', languages)).toContain('not word for word');
+  });
+
+  it('keeps the term rules out of the other actions', () => {
+    expect(systemPrompt('draft', languages)).not.toContain('Keep technical and specialized terms');
+    expect(systemPrompt('explain', languages)).not.toContain('Keep technical and specialized terms');
+  });
+
   it('uses the configured languages', () => {
     const prompt = systemPrompt('explain', { ...languages, primaryLanguage: 'Japanese' });
     expect(prompt).toContain('in Japanese');
