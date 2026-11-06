@@ -9,7 +9,6 @@ import {
   ipcMain,
   Menu,
   nativeImage,
-  nativeTheme,
   screen,
   shell,
   systemPreferences,
@@ -28,7 +27,6 @@ import { LEGACY_DATA_FOLDER, migrateLegacyData } from './migrateLegacyData';
 import { createSelectionDetector, type MouseInfo, type Point } from './selectionDetector';
 import { HOTKEYS, loadSettings, MODELS, parseSettings, saveSettings, type Settings } from './settings';
 import { StyleStore } from './styleStore';
-import { HII_PATTERN, renderPattern } from './trayIcon';
 
 const BAR_SIZE = { width: 132, height: 40 };
 const COPIED_CLOSE_DELAY_MS = 450;
@@ -467,15 +465,8 @@ function registerIpc(): void {
 }
 
 function createTray(): void {
-  // macOS recolors template images to suit the menu bar, so only other systems pick a color.
-  const light = !isMac && nativeTheme.shouldUseDarkColors;
-  const { bitmap, size } = renderPattern(HII_PATTERN, {
-    canvas: 16,
-    scale: 2,
-    color: light ? [255, 255, 255] : [0, 0, 0],
-  });
-  const icon = nativeImage.createFromBitmap(bitmap, { width: size, height: size, scaleFactor: 2 });
-  if (isMac) icon.setTemplateImage(true);
+  // tray.png has a tray@2x.png beside it, which Electron picks up for Retina displays.
+  const icon = nativeImage.createFromPath(staticFile(isMac ? 'tray.png' : 'tray.ico'));
   tray = new Tray(icon);
   tray.setToolTip('Fluent');
   tray.setContextMenu(

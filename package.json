@@ -29,6 +29,7 @@
     ],
     "mac": {
       "category": "public.app-category.productivity",
+      "icon": "build/icon.icns",
       "identity": "-",
       "target": [
         {
@@ -44,7 +45,8 @@
       }
     },
     "win": {
-      "signAndEditExecutable": false
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
     },
     "nsis": {
       "oneClick": true,
