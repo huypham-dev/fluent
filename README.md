@@ -1,4 +1,4 @@
-# TextActions
+# Fluent
 
 A tray app for macOS and Windows that acts on selected text in any app. Select text,
 choose an action, and read the result in a popup. The app never pastes or sends
@@ -27,18 +27,18 @@ an action. The app stores no selected text or results.
 On macOS, paste this into Terminal:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/huypham-dev/text-actions/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/huypham-dev/fluent/main/install.sh | bash
 ```
 
 On Windows, paste this into PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/huypham-dev/text-actions/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/huypham-dev/fluent/main/install.ps1 | iex
 ```
 
 The command downloads the latest release for your computer, installs it, and opens the
 app. To see what it runs first, read [install.sh](install.sh) or [install.ps1](install.ps1).
-On macOS, you still turn on TextActions under System Settings > Privacy & Security >
+On macOS, you still turn on Fluent under System Settings > Privacy & Security >
 Accessibility when the app asks.
 
 ### Download an installer
@@ -47,11 +47,11 @@ Or download the installer for your computer:
 
 | Computer | Download |
 |---|---|
-| Mac with Apple silicon (M1 or later) | [TextActions-0.0.1-arm64.dmg](https://github.com/huypham-dev/text-actions/releases/download/v0.0.1/TextActions-0.0.1-arm64.dmg) |
-| Mac with an Intel processor | [TextActions-0.0.1.dmg](https://github.com/huypham-dev/text-actions/releases/download/v0.0.1/TextActions-0.0.1.dmg) |
-| Windows (64-bit) | [TextActions.Setup.0.0.1.exe](https://github.com/huypham-dev/text-actions/releases/download/v0.0.1/TextActions.Setup.0.0.1.exe) |
+| Mac with Apple silicon (M1 or later) | [Fluent-0.0.2-arm64.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.2/Fluent-0.0.2-arm64.dmg) |
+| Mac with an Intel processor | [Fluent-0.0.2.dmg](https://github.com/huypham-dev/fluent/releases/download/v0.0.2/Fluent-0.0.2.dmg) |
+| Windows (64-bit) | [Fluent.Setup.0.0.2.exe](https://github.com/huypham-dev/fluent/releases/download/v0.0.2/Fluent.Setup.0.0.2.exe) |
 
-Newer versions, if any, are on the [latest release](https://github.com/huypham-dev/text-actions/releases/latest) page.
+Newer versions, if any, are on the [latest release](https://github.com/huypham-dev/fluent/releases/latest) page.
 
 To check which Mac you have, open the Apple menu and choose **About This Mac**.
 
@@ -59,10 +59,10 @@ The installers are not signed, so your computer shows a warning the first time.
 
 ### macOS
 
-1. Open the `.dmg` file and drag TextActions to Applications.
-2. Open TextActions from Applications. If macOS blocks it, go to System Settings >
+1. Open the `.dmg` file and drag Fluent to Applications.
+2. Open Fluent from Applications. If macOS blocks it, go to System Settings >
    Privacy & Security and choose **Open Anyway**.
-3. When the app asks, turn on TextActions under System Settings > Privacy & Security >
+3. When the app asks, turn on Fluent under System Settings > Privacy & Security >
    Accessibility.
 
 The app runs from the menu bar and has no Dock icon. If macOS asks for the Accessibility
@@ -104,7 +104,7 @@ npm run dist:win
 ```
 
 When you run the app with `npm start` on macOS, the Accessibility permission may apply
-to your terminal, and the app is listed as Electron rather than TextActions.
+to your terminal, and the app is listed as Electron rather than Fluent.
 
 ## Using the app
 
@@ -120,8 +120,8 @@ The hotkey, model, CLI path, languages, and automatic icon bar can be changed un
 Choose **Edit Style…** from the tray menu. The file is read for every Draft reply and
 is not used by other actions. It is at:
 
-- macOS: `~/Library/Application Support/TextActions/style.md`
-- Windows: `%APPDATA%\TextActions\style.md`
+- macOS: `~/Library/Application Support/Fluent/style.md`
+- Windows: `%APPDATA%\Fluent\style.md`
 
 ## Keys in the popup
 
@@ -144,7 +144,7 @@ npm run typecheck
 This command calls the real CLI and uses real usage:
 
 ```bash
-TEXTACTIONS_LIVE=1 npx vitest run test/live
+FLUENT_LIVE=1 npx vitest run test/live
 ```
 
 ## Manual checklist

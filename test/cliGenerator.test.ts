@@ -10,7 +10,7 @@ const STOP = JSON.stringify({ type: 'stream_event', event: { type: 'message_stop
 
 /** Writes a fake CLI as a Node script, so these tests run on macOS and Windows. */
 function fakeCli(body: string) {
-  const dir = mkdtempSync(join(tmpdir(), 'textactions-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'fluent-test-'));
   const script = join(dir, 'fake.js');
   writeFileSync(script, `const fs = require('fs'); const dir = ${JSON.stringify(dir)};\n${body}`);
   return { dir, options: { executable: process.execPath, prefixArgs: [script], model: 'sonnet', cwd: dir } };

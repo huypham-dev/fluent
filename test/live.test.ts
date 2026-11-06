@@ -5,8 +5,8 @@ import type { ActionId } from '../src/actions';
 import { defaultCliPath, runCli } from '../src/cliGenerator';
 import { systemPrompt, userPrompt } from '../src/prompt';
 
-/** Calls the real Claude CLI and uses real usage. Run with `TEXTACTIONS_LIVE=1 npx vitest run test/live`. */
-describe.runIf(process.env.TEXTACTIONS_LIVE === '1')('live CLI', () => {
+/** Calls the real Claude CLI and uses real usage. Run with `FLUENT_LIVE=1 npx vitest run test/live`. */
+describe.runIf(process.env.FLUENT_LIVE === '1')('live CLI', () => {
   it.each<[ActionId, string]>([
     ['draft', 'Can you review my PR today?'],
     ['explain', 'The deployment failed because of a race condition in the migration.'],

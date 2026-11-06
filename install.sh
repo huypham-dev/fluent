@@ -1,18 +1,18 @@
 #!/bin/bash
-# Installs or updates TextActions on macOS from the latest GitHub release.
+# Installs or updates Fluent on macOS from the latest GitHub release.
 #
-#   curl -fsSL https://raw.githubusercontent.com/huypham-dev/text-actions/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/huypham-dev/fluent/main/install.sh | bash
 #
 # Optional environment variables:
-#   TEXTACTIONS_INSTALL_DIR  Install here instead of /Applications.
-#   TEXTACTIONS_NO_OPEN=1    Do not open the app after installing.
+#   FLUENT_INSTALL_DIR  Install here instead of /Applications.
+#   FLUENT_NO_OPEN=1    Do not open the app after installing.
 
 # Everything runs from main, called on the last line, so a download that is cut
 # off part-way cannot run a partial script.
 set -euo pipefail
 
-REPO_URL="https://github.com/huypham-dev/text-actions"
-APP_NAME="TextActions.app"
+REPO_URL="https://github.com/huypham-dev/fluent"
+APP_NAME="Fluent.app"
 
 fail() {
   echo "Error: $1" >&2
@@ -34,16 +34,16 @@ latest_version() {
 asset_name() {
   local version="$1"
   if [ "$(sysctl -n hw.optional.arm64 2>/dev/null || true)" = "1" ]; then
-    echo "TextActions-$version-arm64.dmg"
+    echo "Fluent-$version-arm64.dmg"
   else
-    echo "TextActions-$version.dmg"
+    echo "Fluent-$version.dmg"
   fi
 }
 
 install_dir() {
-  if [ -n "${TEXTACTIONS_INSTALL_DIR:-}" ]; then
-    mkdir -p "$TEXTACTIONS_INSTALL_DIR"
-    echo "$TEXTACTIONS_INSTALL_DIR"
+  if [ -n "${FLUENT_INSTALL_DIR:-}" ]; then
+    mkdir -p "$FLUENT_INSTALL_DIR"
+    echo "$FLUENT_INSTALL_DIR"
   elif [ -w /Applications ]; then
     echo /Applications
   else
@@ -53,13 +53,13 @@ install_dir() {
 }
 
 stop_running_app() {
-  local binary="$1/Contents/MacOS/TextActions"
+  local binary="$1/Contents/MacOS/Fluent"
   pgrep -f "$binary" >/dev/null 2>&1 || return 0
-  echo "Closing the running copy of TextActions..."
+  echo "Closing the running copy of Fluent..."
   pkill -f "$binary" || true
   local waited=0
   while pgrep -f "$binary" >/dev/null 2>&1; do
-    [ "$waited" -lt 10 ] || fail "could not close TextActions. Quit it from the menu bar and try again."
+    [ "$waited" -lt 10 ] || fail "could not close Fluent. Quit it from the menu bar and try again."
     sleep 1
     waited=$((waited + 1))
   done
@@ -91,7 +91,7 @@ main() {
 
   trap cleanup EXIT
 
-  echo "Downloading TextActions $version..."
+  echo "Downloading Fluent $version..."
   curl -fL --progress-bar -o "$work/$asset" "$REPO_URL/releases/download/v$version/$asset" ||
     fail "could not download $asset"
 
@@ -109,17 +109,17 @@ main() {
   mv "$staged" "$target"
 
   echo
-  echo "TextActions $version is installed at $target"
+  echo "Fluent $version is installed at $target"
   echo "It runs from the menu bar and has no Dock icon."
   echo "When it asks, turn it on under System Settings > Privacy & Security > Accessibility."
 
   if [ ! -x "$HOME/.local/bin/claude" ] && ! command -v claude >/dev/null 2>&1; then
     echo
-    echo "TextActions also needs the Claude Code CLI, which was not found on this Mac."
+    echo "Fluent also needs the Claude Code CLI, which was not found on this Mac."
     echo "Install it and log in: https://claude.com/product/claude-code"
   fi
 
-  if [ "${TEXTACTIONS_NO_OPEN:-}" != "1" ]; then
+  if [ "${FLUENT_NO_OPEN:-}" != "1" ]; then
     open "$target"
   fi
 }

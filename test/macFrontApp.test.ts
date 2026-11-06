@@ -15,7 +15,7 @@ describe('parseBundleId', () => {
 });
 
 describe('shouldRefocus', () => {
-  const own = 'local.textactions.app';
+  const own = 'local.fluent.app';
 
   it('refocuses when this app took focus from another app', () => {
     expect(shouldRefocus({ source: 'com.google.Chrome', current: own, own })).toBe(true);

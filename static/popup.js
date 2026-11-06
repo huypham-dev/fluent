@@ -1,4 +1,4 @@
-const api = window.textActions;
+const api = window.fluent;
 const $ = (id) => document.getElementById(id);
 const result = $('result');
 const input = $('input');

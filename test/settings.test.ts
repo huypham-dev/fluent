@@ -15,7 +15,7 @@ const defaults: Settings = {
   styleTemplateInstalled: false,
 };
 
-const tempPath = (name: string) => join(mkdtempSync(join(tmpdir(), 'textactions-test-')), name);
+const tempPath = (name: string) => join(mkdtempSync(join(tmpdir(), 'fluent-test-')), name);
 
 describe('settings', () => {
   it('offers the hotkeys from the spec', () => {

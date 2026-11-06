@@ -1,4 +1,4 @@
-const api = window.textActions;
+const api = window.fluent;
 const $ = (id) => document.getElementById(id);
 const TEXT_FIELDS = ['cliPath', 'primaryLanguage', 'secondaryLanguage'];
 

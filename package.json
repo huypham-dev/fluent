@@ -1,9 +1,9 @@
 {
-  "name": "textactions",
-  "productName": "TextActions",
-  "version": "0.0.1",
+  "name": "fluent",
+  "productName": "Fluent",
+  "version": "0.0.2",
   "description": "Act on selected text in any app",
-  "author": "TextActions",
+  "author": "Fluent",
   "private": true,
   "main": "dist/main.js",
   "scripts": {
@@ -15,7 +15,7 @@
     "dist:win": "npm run build && electron-builder --win nsis --x64"
   },
   "build": {
-    "appId": "local.textactions.app",
+    "appId": "local.fluent.app",
     "directories": {
       "output": "release"
     },

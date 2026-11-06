@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
-contextBridge.exposeInMainWorld('textActions', {
+contextBridge.exposeInMainWorld('fluent', {
   runAction: (action: string) => ipcRenderer.send('bar:run', action),
 
   onView: (callback: (view: unknown) => void) => {

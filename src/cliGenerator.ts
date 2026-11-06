@@ -67,7 +67,7 @@ export function runCli(options: CliOptions, onText: (text: string) => void): Cli
     const executable = expandHome(options.executable);
     validateExecutable(executable);
 
-    const promptDir = mkdtempSync(join(tmpdir(), 'textactions-'));
+    const promptDir = mkdtempSync(join(tmpdir(), 'fluent-'));
     const systemFile = join(promptDir, 'system.txt');
     writeFileSync(systemFile, options.system, { mode: 0o600 });
 

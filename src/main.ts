@@ -38,7 +38,7 @@ const REFOCUS_SETTLE_MS = 80;
 const COPY_RESEND_MS = 150;
 const REFOCUSED_COPY_TIMEOUT_MS = 1000;
 // An unpackaged run is the stock Electron app, so it has Electron's bundle id.
-const ownBundleId = () => (app.isPackaged ? 'local.textactions.app' : 'com.github.Electron');
+const ownBundleId = () => (app.isPackaged ? 'local.fluent.app' : 'com.github.Electron');
 const isMac = process.platform === 'darwin';
 
 type PopupView =
@@ -185,7 +185,7 @@ function startHook(): void {
     showMessage({
       kind: 'message',
       title: 'The icon bar is turned off',
-      detail: 'TextActions could not monitor the mouse, which security software can block. You can still select text and press the hotkey.',
+      detail: 'Fluent could not monitor the mouse, which security software can block. You can still select text and press the hotkey.',
       button: 'settings',
     });
   }
@@ -248,7 +248,7 @@ async function runAction(action: ActionId): Promise<void> {
         copySends += 1;
         sendCopy();
       },
-      marker: `textactions-${randomUUID()}`,
+      marker: `fluent-${randomUUID()}`,
       // A reactivated app can report itself frontmost before it accepts the copy shortcut.
       ...(refocused ? { timeoutMs: REFOCUSED_COPY_TIMEOUT_MS, resendMs: COPY_RESEND_MS } : {}),
     });
@@ -303,8 +303,8 @@ function startSession(action: ActionId, selectedText: string): void {
 function permissionMessage(): PopupView {
   return {
     kind: 'message',
-    title: 'TextActions needs Accessibility access',
-    detail: 'It uses this to detect selections and copy your selected text. Turn on TextActions in System Settings, then try again.',
+    title: 'Fluent needs Accessibility access',
+    detail: 'It uses this to detect selections and copy your selected text. Turn on Fluent in System Settings, then try again.',
     button: 'accessibility',
   };
 }
@@ -340,7 +340,7 @@ function openPopup(): void {
     minHeight: 240,
     frame: false,
     show: false,
-    title: 'TextActions',
+    title: 'Fluent',
     alwaysOnTop: true,
     webPreferences,
   });
@@ -402,7 +402,7 @@ function openSettings(): void {
     width: 460,
     height: 460,
     resizable: false,
-    title: 'TextActions Settings',
+    title: 'Fluent Settings',
     alwaysOnTop: true,
     webPreferences,
   });
@@ -476,14 +476,14 @@ function createTray(): void {
   const icon = nativeImage.createFromBitmap(bitmap, { width: size, height: size, scaleFactor: 2 });
   if (isMac) icon.setTemplateImage(true);
   tray = new Tray(icon);
-  tray.setToolTip('TextActions');
+  tray.setToolTip('Fluent');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Settings…', click: openSettings },
       { label: 'Edit Style…', click: editStyle },
       { label: 'Open Diagnostic Log', click: () => void shell.openPath(logPath()) },
       { type: 'separator' },
-      { label: 'Quit TextActions', click: () => app.quit() },
+      { label: 'Quit Fluent', click: () => app.quit() },
     ]),
   );
 }
