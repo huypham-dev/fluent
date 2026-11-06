@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check the tag matches package.json and the README links
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [ "$package_version" != "$version" ]; then
+            echo "::error::Tag $TAG does not match package.json version $package_version"
+            exit 1
+          fi
+          for asset in "Fluent-$version-arm64.dmg" "Fluent-$version.dmg" "Fluent.Setup.$version.exe"; do
+            if ! grep -qF "releases/download/$TAG/$asset" README.md; then
+              echo "::error::README.md has no download link for $asset in $TAG"
+              exit 1
+            fi
+          done
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: check
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            script: dist:mac
+            artifact: release/*.dmg
+          - os: windows-latest
+            script: dist:win
+            artifact: release/*.exe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          # No dependency cache, so installers are built from a clean install.
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run ${{ matrix.script }} -- --publish never
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-${{ matrix.os }}
+          path: ${{ matrix.artifact }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Create draft release
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Full history, to list the commits since the previous tag.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          path: assets
+          merge-multiple: true
+
+      - name: Write the release notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          previous="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
+          range="${previous:+$previous..}$TAG"
+          {
+            cat <<'EOF'
+          ## Install or update
+
+          macOS (Terminal):
+
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/huypham-dev/fluent/main/install.sh | bash
+          ```
+
+          Windows (PowerShell):
+
+          ```powershell
+          irm https://raw.githubusercontent.com/huypham-dev/fluent/main/install.ps1 | iex
+          ```
+
+          ## Changes
+
+          EOF
+            git log --no-merges --format='%s' "$range" |
+              { grep -E '^(feat|fix)(\([^)]*\))?!?: ' || true; } |
+              sed -E 's/^[a-z]+(\([^)]*\))?!?: /- /'
+            cat <<'EOF'
+
+          ## After updating on macOS
+
+          The app is not signed, so macOS may ask for the Accessibility permission again. If it does, turn Fluent off and on again under System Settings > Privacy & Security > Accessibility.
+
+          The installers are not signed, so a downloaded installer shows a warning the first time.
+          EOF
+          } > notes.md
+
+      # A draft stays out of /releases/latest, so the install scripts keep serving
+      # the current release until the draft is reviewed and published by hand.
+      - name: Create the draft release
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${TAG#v}"
+          # install.ps1 downloads this exact name.
+          mv "assets/Fluent Setup $version.exe" "assets/Fluent.Setup.$version.exe"
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file notes.md \
+            "assets/Fluent-$version-arm64.dmg" \
+            "assets/Fluent-$version.dmg" \
+            "assets/Fluent.Setup.$version.exe"

@@ -157,6 +157,17 @@ This command calls the real CLI and uses real usage:
 FLUENT_LIVE=1 npx vitest run test/live
 ```
 
+## Releasing
+
+1. Update the version in `package.json` and `package-lock.json`, and the download links
+   in this README, then commit to `main`.
+2. Tag that commit and push the tag, for example `git tag v0.0.4` and
+   `git push origin v0.0.4`.
+3. The Release workflow checks the version, runs the tests, builds the installers, and
+   creates a draft release with them.
+4. Edit the notes in the draft, try the installers, and publish it. The install commands
+   keep serving the previous release until you publish.
+
 ## Manual checklist
 
 Run these on each OS, in Slack, Chrome, Mail or Outlook, VS Code, and Word:
