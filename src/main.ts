@@ -22,6 +22,7 @@ import { captureSelection } from './captureSelection';
 import { defaultCliPath, runCli } from './cliGenerator';
 import { logEvent, logPath } from './diagnostics';
 import { electronClipboard } from './electronClipboard';
+import { createHeldKeys } from './heldKeys';
 import { activateApp, frontmostBundleId, shouldRefocus } from './macFrontApp';
 import { LEGACY_DATA_FOLDER, migrateLegacyData } from './migrateLegacyData';
 import { createSelectionDetector, type MouseInfo, type Point } from './selectionDetector';
@@ -32,6 +33,7 @@ const BAR_SIZE = { width: 132, height: 40 };
 const COPIED_CLOSE_DELAY_MS = 450;
 const BAR_TIMEOUT_MS = 4000;
 const HOTKEY_KEY_GRACE_MS = 600;
+const HOTKEY_RELEASE_TIMEOUT_MS = 1000;
 const PERMISSION_POLL_MS = 2000;
 const REFOCUS_SETTLE_MS = 80;
 const COPY_RESEND_MS = 150;
@@ -77,6 +79,17 @@ let sourceApp: string | null = null;
 let ignoreKeysUntil = 0;
 let hookRunning = false;
 let capturing = false;
+
+const heldModifiers = createHeldKeys([
+  UiohookKey.Ctrl,
+  UiohookKey.CtrlRight,
+  UiohookKey.Alt,
+  UiohookKey.AltRight,
+  UiohookKey.Shift,
+  UiohookKey.ShiftRight,
+  UiohookKey.Meta,
+  UiohookKey.MetaRight,
+]);
 
 const webPreferences = {
   preload: join(__dirname, 'preload.js'),
@@ -172,9 +185,11 @@ function startHook(): void {
     const info = mouseInfo(event);
     if (detector.mouseUp(info) && settings.autoBar && !capturing) showBar(info);
   });
-  uIOhook.on('keydown', () => {
+  uIOhook.on('keydown', (event) => {
+    heldModifiers.keyDown(event.keycode);
     if (Date.now() >= ignoreKeysUntil) hideBar();
   });
+  uIOhook.on('keyup', (event) => heldModifiers.keyUp(event.keycode));
   try {
     uIOhook.start();
     hookRunning = true;
@@ -260,9 +275,7 @@ async function runAction(action: ActionId): Promise<void> {
     });
     if (captured.kind === 'text') {
       startSession(action, captured.text);
-    } else if (captured.kind === 'noSelection') {
-      showMessage({ kind: 'message', title: 'No text selected', detail: 'Select some text, then try again.' });
-    } else {
+    } else if (captured.kind === 'noText') {
       showMessage({ kind: 'message', title: 'The selection cannot be read', detail: 'The copied content has no text.' });
     }
   } catch (error) {
@@ -271,6 +284,43 @@ async function runAction(action: ActionId): Promise<void> {
   } finally {
     capturing = false;
   }
+}
+
+/**
+ * The hotkey is pressed on purpose, so it can afford a copy to check for a selection first.
+ * On Windows that copy is Ctrl+C, which would interrupt a command in a terminal.
+ * If the check cannot run, the bar shows, and choosing an action checks again.
+ */
+async function showBarForHotkey(): Promise<void> {
+  if (!isMac || !hookRunning || popup) {
+    showBar(screen.getCursorScreenPoint());
+    return;
+  }
+  if (capturing) return;
+
+  capturing = true;
+  let show = true;
+  try {
+    // A held Control or Alt would turn the simulated copy into a different shortcut.
+    if (await heldModifiers.whenReleased(HOTKEY_RELEASE_TIMEOUT_MS)) {
+      // The hook also sees the simulated copy, which must not hide the bar.
+      ignoreKeysUntil = Date.now() + HOTKEY_KEY_GRACE_MS;
+      const captured = await captureSelection({
+        clipboard: electronClipboard,
+        sendCopy,
+        marker: `fluent-${randomUUID()}`,
+      });
+      logEvent('hotkey-capture-finished', { kind: captured.kind });
+      show = captured.kind === 'text';
+    } else {
+      logEvent('hotkey-modifiers-held');
+    }
+  } catch (error) {
+    logEvent('hotkey-capture-failed', { error: String(error) });
+  } finally {
+    capturing = false;
+  }
+  if (show) showBar(screen.getCursorScreenPoint());
 }
 
 function startSession(action: ActionId, selectedText: string): void {
@@ -375,7 +425,7 @@ function applyHotkey(): void {
         showMessage(permissionMessage());
         return;
       }
-      showBar(screen.getCursorScreenPoint());
+      void showBarForHotkey();
     });
   } catch (error) {
     logEvent('hotkey-error', { error: String(error) });

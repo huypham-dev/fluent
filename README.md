@@ -121,6 +121,13 @@ After you select text with the mouse, an icon bar appears near the pointer. Afte
 select text with the keyboard, press the hotkey instead. The default hotkey is
 `Control+Alt+R`.
 
+The icon bar can also appear after a mouse drag that selected nothing, because the app
+does not read the selection until you choose an action. If nothing is selected, choosing
+an action does nothing. On macOS, the hotkey checks for a selection first by simulating a
+copy, then restores your clipboard, and shows nothing if no text is selected. On Windows,
+the hotkey always shows the bar, because the simulated copy could interrupt a command
+running in a terminal.
+
 The hotkey, Draft reply and Translate model, CLI path, languages, and automatic icon bar
 can be changed under **Settings…** in the tray menu. Explain always uses Haiku, so it
 responds faster.
