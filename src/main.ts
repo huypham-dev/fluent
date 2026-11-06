@@ -16,7 +16,7 @@ import {
 } from 'electron';
 import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { ActionSession } from './actionSession';
-import { ACTIONS, isActionId, type ActionId } from './actions';
+import { ACTIONS, isActionId, modelFor, type ActionId } from './actions';
 import { barPosition } from './barPosition';
 import { captureSelection } from './captureSelection';
 import { defaultCliPath, runCli } from './cliGenerator';
@@ -282,7 +282,7 @@ function startSession(action: ActionId, selectedText: string): void {
     loadStyle: () => style().load(),
     generate: (request, onText) =>
       runCli(
-        { executable: settings.cliPath, model: settings.model, cwd: app.getPath('userData'), ...request },
+        { executable: settings.cliPath, model: modelFor(action, settings.model), cwd: app.getPath('userData'), ...request },
         onText,
       ),
   });

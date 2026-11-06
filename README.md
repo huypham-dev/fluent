@@ -121,8 +121,9 @@ After you select text with the mouse, an icon bar appears near the pointer. Afte
 select text with the keyboard, press the hotkey instead. The default hotkey is
 `Control+Alt+R`.
 
-The hotkey, model, CLI path, languages, and automatic icon bar can be changed under
-**Settings…** in the tray menu.
+The hotkey, Draft reply and Translate model, CLI path, languages, and automatic icon bar
+can be changed under **Settings…** in the tray menu. Explain always uses Haiku, so it
+responds faster.
 
 ## Your style
 

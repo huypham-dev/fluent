@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ACTIONS } from '../src/actions';
+import { ACTIONS, modelFor } from '../src/actions';
 import { systemPrompt, userPrompt } from '../src/prompt';
 
 const languages = { style: null, primaryLanguage: 'Vietnamese', secondaryLanguage: 'English' };
@@ -9,6 +9,18 @@ describe('ACTIONS', () => {
     expect(ACTIONS.explain.editable).toBe(false);
     expect(ACTIONS.draft.editable).toBe(true);
     expect(ACTIONS.translate.editable).toBe(true);
+  });
+});
+
+describe('modelFor', () => {
+  it.each(['draft', 'translate'] as const)('uses the chosen model for %s', (action) => {
+    expect(modelFor(action, 'sonnet')).toBe('sonnet');
+    expect(modelFor(action, 'haiku')).toBe('haiku');
+  });
+
+  it('always uses Haiku for Explain', () => {
+    expect(modelFor('explain', 'sonnet')).toBe('haiku');
+    expect(modelFor('explain', 'haiku')).toBe('haiku');
   });
 });
 
