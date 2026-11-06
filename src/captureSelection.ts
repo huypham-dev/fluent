@@ -22,19 +22,26 @@ export async function captureSelection<S>(deps: {
   marker: string;
   timeoutMs?: number;
   pollMs?: number;
+  /** Sends copy again at this interval while the marker stays. Off by default. */
+  resendMs?: number;
 }): Promise<CaptureResult> {
-  const { clipboard, marker, timeoutMs = 500, pollMs = 10 } = deps;
+  const { clipboard, marker, timeoutMs = 500, pollMs = 10, resendMs } = deps;
   const snapshot = await clipboard.save();
   try {
     await clipboard.writeText(marker);
     await deps.sendCopy();
 
     const deadline = Date.now() + timeoutMs;
+    let nextSend = resendMs === undefined ? Infinity : Date.now() + resendMs;
     let text = await clipboard.readText();
     // Some apps clear the clipboard before writing, so empty text may be temporary.
     while ((text === marker || text === '') && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, pollMs));
       text = await clipboard.readText();
+      if (text === marker && resendMs !== undefined && Date.now() >= nextSend) {
+        await deps.sendCopy();
+        nextSend = Date.now() + resendMs;
+      }
     }
 
     if (text === marker) return { kind: 'noSelection' };

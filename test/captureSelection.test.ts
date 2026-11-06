@@ -104,6 +104,51 @@ describe('captureSelection', () => {
     expect(result).toEqual({ kind: 'text', text: 'late' });
   });
 
+  it('sends copy again when an app ignored the first one', async () => {
+    const fake = fakeClipboard('old');
+    let sends = 0;
+    const result = await captureSelection({
+      ...options,
+      resendMs: 10,
+      clipboard: fake.clipboard,
+      sendCopy: () => {
+        sends += 1;
+        if (sends === 2) fake.set('selected');
+      },
+    });
+    expect(result).toEqual({ kind: 'text', text: 'selected' });
+    expect(sends).toBe(2);
+  });
+
+  it('does not send copy again while an app is writing to the clipboard', async () => {
+    const fake = fakeClipboard('old');
+    let sends = 0;
+    await captureSelection({
+      ...options,
+      resendMs: 5,
+      clipboard: fake.clipboard,
+      sendCopy: () => {
+        sends += 1;
+        fake.set('');
+        setTimeout(() => fake.set('selected'), 30);
+      },
+    });
+    expect(sends).toBe(1);
+  });
+
+  it('sends copy only once by default', async () => {
+    const fake = fakeClipboard('old');
+    let sends = 0;
+    await captureSelection({
+      ...options,
+      clipboard: fake.clipboard,
+      sendCopy: () => {
+        sends += 1;
+      },
+    });
+    expect(sends).toBe(1);
+  });
+
   it('reports no selection when the marker stays and restores', async () => {
     const fake = fakeClipboard('old');
     const result = await captureSelection({ ...options, clipboard: fake.clipboard, sendCopy: () => {} });

@@ -34,6 +34,8 @@ const BAR_TIMEOUT_MS = 4000;
 const HOTKEY_KEY_GRACE_MS = 600;
 const PERMISSION_POLL_MS = 2000;
 const REFOCUS_SETTLE_MS = 80;
+const COPY_RESEND_MS = 150;
+const REFOCUSED_COPY_TIMEOUT_MS = 1000;
 // An unpackaged run is the stock Electron app, so it has Electron's bundle id.
 const ownBundleId = () => (app.isPackaged ? 'local.textactions.app' : 'com.github.Electron');
 const isMac = process.platform === 'darwin';
@@ -209,14 +211,15 @@ function sendCopy(): void {
 }
 
 /** Clicking the bar can make this app frontmost on macOS, which would send the copy here. */
-async function returnFocusToSource(): Promise<void> {
-  if (!isMac || !sourceApp) return;
+async function returnFocusToSource(): Promise<boolean> {
+  if (!isMac || !sourceApp) return false;
   const current = frontmostBundleId();
   const refocus = shouldRefocus({ source: sourceApp, current, own: ownBundleId() });
   logEvent('refocus-checked', { source: sourceApp, current: current ?? 'unknown', refocus });
-  if (!refocus) return;
+  if (!refocus) return false;
   await activateApp(sourceApp);
   await new Promise((resolve) => setTimeout(resolve, REFOCUS_SETTLE_MS));
+  return true;
 }
 
 async function runAction(action: ActionId): Promise<void> {
@@ -234,15 +237,25 @@ async function runAction(action: ActionId): Promise<void> {
 
   capturing = true;
   try {
-    await returnFocusToSource();
+    const refocused = await returnFocusToSource();
+    const startedAt = Date.now();
+    let copySends = 0;
     const captured = await captureSelection({
       clipboard: electronClipboard,
-      sendCopy,
+      sendCopy: () => {
+        copySends += 1;
+        sendCopy();
+      },
       marker: `textactions-${randomUUID()}`,
+      // A reactivated app can report itself frontmost before it accepts the copy shortcut.
+      ...(refocused ? { timeoutMs: REFOCUSED_COPY_TIMEOUT_MS, resendMs: COPY_RESEND_MS } : {}),
     });
     logEvent('capture-finished', {
       kind: captured.kind,
       length: captured.kind === 'text' ? captured.text.length : 0,
+      copySends,
+      ms: Date.now() - startedAt,
+      front: frontmostBundleId() ?? 'unknown',
     });
     if (captured.kind === 'text') {
       startSession(action, captured.text);
