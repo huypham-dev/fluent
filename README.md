@@ -22,7 +22,28 @@ an action. The app stores no selected text or results.
 
 ## Download and install
 
-Download the installer for your computer:
+### Install with one command
+
+On macOS, paste this into Terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/huypham-dev/text-actions/main/install.sh | bash
+```
+
+On Windows, paste this into PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/huypham-dev/text-actions/main/install.ps1 | iex
+```
+
+The command downloads the latest release for your computer, installs it, and opens the
+app. To see what it runs first, read [install.sh](install.sh) or [install.ps1](install.ps1).
+On macOS, you still turn on TextActions under System Settings > Privacy & Security >
+Accessibility when the app asks.
+
+### Download an installer
+
+Or download the installer for your computer:
 
 | Computer | Download |
 |---|---|
@@ -57,7 +78,8 @@ detects a selection.
 
 ### Updates
 
-The app does not update itself. To update, download and install the latest release.
+The app does not update itself. To update, run the install command again, or download
+and install the latest release.
 
 ## Build from source
 
