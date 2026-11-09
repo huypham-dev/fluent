@@ -40,8 +40,17 @@
       }
       * { box-sizing: border-box; }
       [hidden] { display: none !important; }
-      html, body { height: 100%; margin: 0; }
-      body { display: flex; flex-direction: column; padding: 14px; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+      html, body { height: 100%; margin: 0; background: transparent; }
+      /* The window is see-through; its margins hold the arrow and the card's shadow. */
+      body { --margin: 18px; --arrow: 10px; display: flex; padding: var(--margin); color: var(--text); font: 14px/1.5 -apple-system, system-ui, sans-serif; }
+      body.below { padding-top: calc(var(--margin) + var(--arrow)); }
+      body.above { padding-bottom: calc(var(--margin) + var(--arrow)); }
+      body:not(.below):not(.above) { padding-bottom: calc(var(--margin) + var(--arrow) / 2); padding-top: calc(var(--margin) + var(--arrow) / 2); }
+      #card { position: relative; display: flex; flex-direction: column; flex: 1; min-width: 0; padding: 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1); }
+      /* A rotated square drawn over the card's edge; its outer half is the arrow. */
+      #arrow { position: absolute; left: var(--arrow-x, 50%); width: 14px; height: 14px; margin-left: -7px; border: 1px solid var(--line); background: var(--bg); transform: rotate(45deg); display: none; z-index: 1; }
+      body.below #arrow { display: block; top: calc(var(--margin) + var(--arrow) - 7px); border-right: 0; border-bottom: 0; }
+      body.above #arrow { display: block; bottom: calc(var(--margin) + var(--arrow) - 7px); border-left: 0; border-top: 0; }
 
       /* The window is frameless, so the header and the message view move it. */
       .header, #message { -webkit-app-region: drag; }
@@ -107,6 +116,8 @@
       <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M16 18a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm0 -12a2 2 0 0 1 2 2a2 2 0 0 1 2 -2a2 2 0 0 1 -2 -2a2 2 0 0 1 -2 2zm-7 12a6 6 0 0 1 6 -6a6 6 0 0 1 -6 -6a6 6 0 0 1 -6 6a6 6 0 0 1 6 6z" /></symbol>
     </svg>
 
+    <div id="arrow" aria-hidden="true"></div>
+    <div id="card">
     <div id="session" hidden>
       <div class="header">
         <div class="badge"><svg class="icon" aria-hidden="true"><use id="title-icon" href="#i-draft" /></svg></div>
@@ -136,6 +147,7 @@
       <h1 id="message-title"></h1>
       <div id="message-detail"></div>
       <button id="message-button" class="primary" type="button" hidden></button>
+    </div>
     </div>
     <script src="popup.js"></script>
   </body>

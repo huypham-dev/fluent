@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('fluent', {
     ipcRenderer.on('popup:view', (_event, view) => callback(view));
     ipcRenderer.send('popup:ready');
   },
+  onPlacement: (callback: (placement: unknown) => void) => {
+    ipcRenderer.on('popup:placement', (_event, placement) => callback(placement));
+  },
   edit: (text: string) => ipcRenderer.send('popup:edit', text),
   submit: (text: string) => ipcRenderer.send('popup:submit', text),
   retry: () => ipcRenderer.send('popup:retry'),

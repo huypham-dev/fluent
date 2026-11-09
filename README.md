@@ -182,7 +182,11 @@ Run these on each OS, in Slack, Chrome, Mail or Outlook, VS Code, and Word:
 - [ ] Clicking an icon keeps focus in the source app.
 - [ ] Simulated copy reaches the source app.
 - [ ] The original clipboard is restored after capture and after Esc.
-- [ ] Focus returns to the source app when the popup closes.
+- [ ] Focus returns to the source app when the popup closes with Esc, the close button,
+      or Copy.
+- [ ] The popup opens under the selection, or above it near the bottom of the screen,
+      with its arrow pointing at the selection.
+- [ ] A click outside the popup closes it.
 - [ ] Enter and Esc while composing Vietnamese text do not copy or close.
 - [ ] The bar is placed correctly on a second display and at different scale factors.
 - [ ] Selecting text in a terminal does not interrupt a running command.

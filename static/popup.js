@@ -97,6 +97,13 @@ function renderMessage() {
   button.textContent = view.button === 'accessibility' ? 'Open System Settings' : 'Open Settings';
 }
 
+// Registered before onView, which tells the main process the page is listening.
+api.onPlacement((placement) => {
+  document.body.classList.toggle('below', placement?.side === 'below');
+  document.body.classList.toggle('above', placement?.side === 'above');
+  if (placement) document.body.style.setProperty('--arrow-x', `${placement.arrowX}px`);
+});
+
 api.onView((next) => {
   view = next;
   const isSession = view?.kind === 'session';

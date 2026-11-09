@@ -18,6 +18,7 @@ import { uIOhook, UiohookKey } from 'uiohook-napi';
 import { ActionSession } from './actionSession';
 import { ACTIONS, isActionId, modelFor, type ActionId } from './actions';
 import { barPosition } from './barPosition';
+import { POPUP_WINDOW, popupPlacement, selectionAnchor, type PopupPlacement } from './popupPosition';
 import { captureSelection } from './captureSelection';
 import { defaultCliPath, runCli } from './cliGenerator';
 import { logEvent, logPath } from './diagnostics';
@@ -79,6 +80,13 @@ let sourceApp: string | null = null;
 let ignoreKeysUntil = 0;
 let hookRunning = false;
 let capturing = false;
+/** Where the last mouse press started, to find the middle of a dragged selection. */
+let pressPoint: Point | null = null;
+/** Where the selection the bar acts on is on screen; the popup points at it. */
+let selectionPoint: Point | null = null;
+let placement: PopupPlacement | null = null;
+/** An outside click already moved focus where the user wanted it. */
+let refocusOnClose = true;
 
 const heldModifiers = createHeldKeys([
   UiohookKey.Ctrl,
@@ -157,8 +165,9 @@ function createBar(): BrowserWindow {
   return window;
 }
 
-function showBar(pointer: Point): void {
+function showBar(pointer: Point, anchor: Point = pointer): void {
   if (!bar) return;
+  selectionPoint = anchor;
   sourceApp = isMac ? frontmostBundleId() : null;
   const { workArea } = screen.getDisplayNearestPoint(pointer);
   const { x, y } = barPosition(pointer, BAR_SIZE, workArea);
@@ -179,11 +188,13 @@ function startHook(): void {
   uIOhook.on('mousedown', (event) => {
     const info = mouseInfo(event);
     detector.mouseDown(info);
+    pressPoint = info;
     if (!isInside(bar, info)) hideBar();
+    closePopupOnOutsideClick(info);
   });
   uIOhook.on('mouseup', (event) => {
     const info = mouseInfo(event);
-    if (detector.mouseUp(info) && settings.autoBar && !capturing) showBar(info);
+    if (detector.mouseUp(info) && settings.autoBar && !capturing) showBar(info, selectionAnchor(pressPoint, info));
   });
   uIOhook.on('keydown', (event) => {
     heldModifiers.keyDown(event.keycode);
@@ -276,11 +287,14 @@ async function runAction(action: ActionId): Promise<void> {
     if (captured.kind === 'text') {
       startSession(action, captured.text);
     } else if (captured.kind === 'noText') {
-      showMessage({ kind: 'message', title: 'The selection cannot be read', detail: 'The copied content has no text.' });
+      showMessage(
+        { kind: 'message', title: 'The selection cannot be read', detail: 'The copied content has no text.' },
+        selectionPoint,
+      );
     }
   } catch (error) {
     logEvent('capture-failed', { error: String(error) });
-    showMessage({ kind: 'message', title: 'The selection could not be copied', detail: String(error) });
+    showMessage({ kind: 'message', title: 'The selection could not be copied', detail: String(error) }, selectionPoint);
   } finally {
     capturing = false;
   }
@@ -343,7 +357,7 @@ function startSession(action: ActionId, selectedText: string): void {
     sendView();
   };
   view = { kind: 'session', action, title, editable, inputLabel, state: current.state };
-  openPopup();
+  openPopup(selectionPoint);
   current.start();
 }
 
@@ -358,10 +372,18 @@ function permissionMessage(): PopupView {
   };
 }
 
-function showMessage(message: PopupView): void {
+function showMessage(message: PopupView, anchor: Point | null = null): void {
   if (popup && session) return;
   view = message;
-  openPopup();
+  openPopup(anchor);
+}
+
+/** Like a page's translate bubble, a click anywhere else dismisses the popup. */
+function closePopupOnOutsideClick(point: Point): void {
+  if (!popup || isInside(popup, point) || isInside(bar, point) || isInside(settingsWindow, point)) return;
+  logEvent('popup-dismissed');
+  refocusOnClose = false;
+  popup.close();
 }
 
 function focusPopup(): void {
@@ -376,23 +398,44 @@ function sendView(): void {
   if (popup && popupReady) popup.webContents.send('popup:view', view);
 }
 
-function openPopup(): void {
+function sendPlacement(): void {
+  if (popup && popupReady) popup.webContents.send('popup:placement', placement && { side: placement.side, arrowX: placement.arrowX });
+}
+
+/** Points the popup at the selection, or centers it without an arrow when there is none. */
+function placePopup(window: BrowserWindow, anchor: Point | null): void {
+  const point = anchor ?? screen.getCursorScreenPoint();
+  const { workArea } = screen.getDisplayNearestPoint(point);
+  placement = anchor ? popupPlacement(anchor, workArea) : null;
+  const x = placement?.x ?? workArea.x + (workArea.width - POPUP_WINDOW.width) / 2;
+  const y = placement?.y ?? workArea.y + (workArea.height - POPUP_WINDOW.height) / 2;
+  window.setPosition(Math.round(x), Math.round(y));
+}
+
+function openPopup(anchor: Point | null = null): void {
   if (popup) {
     sendView();
     focusPopup();
     return;
   }
   const window = new BrowserWindow({
-    width: 500,
-    height: 340,
-    minWidth: 380,
-    minHeight: 240,
+    ...POPUP_WINDOW,
     frame: false,
     show: false,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    // The page draws the card, its arrow and its shadow on a see-through window.
+    transparent: true,
+    backgroundColor: '#00000000',
+    hasShadow: false,
     title: 'Fluent',
     alwaysOnTop: true,
     webPreferences,
   });
+  placePopup(window, anchor);
+  refocusOnClose = true;
   lockDown(window);
   window.removeMenu();
   popup = window;
@@ -404,7 +447,14 @@ function openPopup(): void {
     view = null;
     session?.cancel();
     session = null;
-    void returnFocusToSource();
+    placement = null;
+    if (refocusOnClose) void returnFocusToSource();
+  });
+  // Once dragged away, the arrow no longer points at the selection.
+  window.on('will-move', () => {
+    if (!placement) return;
+    placement = null;
+    sendPlacement();
   });
   window.webContents.once('did-finish-load', () => {
     window.show();
@@ -485,6 +535,7 @@ function registerIpc(): void {
   ipcMain.on('popup:ready', (event) => {
     if (event.sender !== popup?.webContents) return;
     popupReady = true;
+    sendPlacement();
     sendView();
   });
   ipcMain.on('popup:edit', (_event, text: unknown) => {
