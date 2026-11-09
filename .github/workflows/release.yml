@@ -84,7 +84,8 @@ jobs:
           fi
           export PATH="$nsis:$PATH"
           mkdir -p release
-          makensis "/DVERSION=${TAG#v}" installer/fluent.nsi
+          # Git Bash would turn a /D option into a path, so pass it as -D.
+          makensis "-DVERSION=${TAG#v}" installer/fluent.nsi
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
