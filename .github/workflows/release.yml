@@ -17,14 +17,14 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Check the tag matches package.json and the README links
+      - name: Check the tag matches Cargo.toml and the README links
         env:
           TAG: ${{ github.ref_name }}
         run: |
           version="${TAG#v}"
-          package_version="$(node -p "require('./package.json').version")"
-          if [ "$package_version" != "$version" ]; then
-            echo "::error::Tag $TAG does not match package.json version $package_version"
+          crate_version="$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          if [ "$crate_version" != "$version" ]; then
+            echo "::error::Tag $TAG does not match Cargo.toml version $crate_version"
             exit 1
           fi
           for asset in "Fluent-$version-arm64.dmg" "Fluent-$version.dmg" "Fluent.Setup.$version.exe"; do
@@ -34,45 +34,61 @@ jobs:
             fi
           done
 
-  build:
-    name: Build (${{ matrix.os }})
+  build-mac:
+    name: Build (macOS)
     needs: check
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     timeout-minutes: 30
-    strategy:
-      matrix:
-        include:
-          - os: macos-latest
-            script: dist:mac
-            artifact: release/*.dmg
-          - os: windows-latest
-            script: dist:win
-            artifact: release/*.exe
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          # No dependency cache, so installers are built from a clean install.
-
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run ${{ matrix.script }} -- --publish never
+      - run: rustup toolchain install stable --profile minimal --target aarch64-apple-darwin,x86_64-apple-darwin
+      - run: cargo test --locked
+      - run: scripts/bundle-mac.sh aarch64-apple-darwin
+      - run: scripts/bundle-mac.sh x86_64-apple-darwin
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: installers-${{ matrix.os }}
-          path: ${{ matrix.artifact }}
+          name: installers-macos
+          path: release/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  build-windows:
+    name: Build (Windows)
+    needs: check
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - run: rustup toolchain install stable --profile minimal --target x86_64-pc-windows-msvc
+      - run: cargo test --locked
+      - run: cargo build --release --locked --target x86_64-pc-windows-msvc
+
+      # The runner image comes with NSIS.
+      - name: Build the installer
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          mkdir -p release
+          makensis "/DVERSION=${TAG#v}" installer/fluent.nsi
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: installers-windows
+          path: release/*.exe
           if-no-files-found: error
           retention-days: 7
 
   publish:
     name: Create draft release
-    needs: build
+    needs: [build-mac, build-windows]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -96,7 +112,7 @@ jobs:
           previous="$(git describe --tags --abbrev=0 "$TAG^" 2>/dev/null || true)"
           range="${previous:+$previous..}$TAG"
           {
-            cat <<'EOF'
+            cat <<'NOTES'
           ## Install or update
 
           macOS (Terminal):
@@ -113,18 +129,18 @@ jobs:
 
           ## Changes
 
-          EOF
+          NOTES
             git log --no-merges --format='%s' "$range" |
-              { grep -E '^(feat|fix)(\([^)]*\))?!?: ' || true; } |
+              { grep -E '^(feat|fix|perf)(\([^)]*\))?!?: ' || true; } |
               sed -E 's/^[a-z]+(\([^)]*\))?!?: /- /'
-            cat <<'EOF'
+            cat <<'NOTES'
 
           ## After updating on macOS
 
           The app is not signed, so macOS may ask for the Accessibility permission again. If it does, turn Fluent off and on again under System Settings > Privacy & Security > Accessibility.
 
           The installers are not signed, so a downloaded installer shows a warning the first time.
-          EOF
+          NOTES
           } > notes.md
 
       # A draft stays out of /releases/latest, so the install scripts keep serving
@@ -135,8 +151,6 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${TAG#v}"
-          # install.ps1 downloads this exact name.
-          mv "assets/Fluent Setup $version.exe" "assets/Fluent.Setup.$version.exe"
           gh release create "$TAG" \
             --draft \
             --verify-tag \

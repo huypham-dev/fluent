@@ -16,7 +16,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    timeout-minutes: 30
     strategy:
       # Keep the other OS running, so one failure shows whether it is OS-specific.
       fail-fast: false
@@ -28,12 +28,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm ci
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build
+      # The runners come with rustup.
+      - run: rustup toolchain install stable --profile minimal --component rustfmt
+      - run: cargo fmt --check
+      - run: cargo test --locked
+      - run: cargo build --locked

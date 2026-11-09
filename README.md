@@ -94,28 +94,35 @@ copies your settings and style file the first time it opens. Afterward:
 
 ## Build from source
 
-Building requires Node.js and npm:
+Fluent is written in Rust with a [Slint](https://slint.dev) UI. Building requires the Rust
+toolchain from [rustup](https://rustup.rs):
 
 ```bash
-npm install
+cargo run
+```
+
+Build a disk image into `release/` on a Mac:
+
+```bash
+scripts/bundle-mac.sh aarch64-apple-darwin
 ```
 
 ```bash
-npm start
+scripts/bundle-mac.sh x86_64-apple-darwin
 ```
 
-Build an installer into `release/`:
+Build the Windows installer on Windows, with [NSIS](https://nsis.sourceforge.io) installed:
 
 ```bash
-npm run dist:mac
+cargo build --release --target x86_64-pc-windows-msvc
 ```
 
 ```bash
-npm run dist:win
+makensis /DVERSION=0.0.5 installer/fluent.nsi
 ```
 
-When you run the app with `npm start` on macOS, the Accessibility permission may apply
-to your terminal, and the app is listed as Electron rather than Fluent.
+When you run the app with `cargo run` on macOS, the Accessibility permission may apply
+to your terminal.
 
 ## Using the app
 
@@ -153,23 +160,19 @@ is not used by other actions. It is at:
 ## Tests
 
 ```bash
-npm test
-```
-
-```bash
-npm run typecheck
+cargo test
 ```
 
 This command calls the real CLI and uses real usage:
 
 ```bash
-FLUENT_LIVE=1 npx vitest run test/live
+FLUENT_LIVE=1 cargo test live -- --ignored --nocapture
 ```
 
 ## Releasing
 
-1. Update the version in `package.json` and `package-lock.json`, and the download links
-   in this README, then commit to `main`.
+1. Update the version in `Cargo.toml` (and `Cargo.lock`, which `cargo build` updates), and
+   the download links in this README, then commit to `main`.
 2. Tag that commit and push the tag, for example `git tag v0.0.4` and
    `git push origin v0.0.4`.
 3. The Release workflow checks the version, runs the tests, builds the installers, and

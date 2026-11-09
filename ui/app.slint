@@ -1,0 +1,918 @@
+import { ComboBox, Palette, ScrollView, Switch } from "std-widgets.slint";
+
+// Colors from the Electron pages, in light and dark.
+global Theme {
+    out property <bool> dark: Palette.color-scheme == ColorScheme.dark;
+    out property <color> bg: dark ? #242427 : #fbfbfa;
+    out property <color> field: dark ? #1b1b1e : #ffffff;
+    out property <color> card: dark ? #2c2c30 : #ffffff;
+    out property <color> line: dark ? #ffffff1f : #0000001c;
+    out property <color> text: dark ? #f2f2f4 : #1d1d1f;
+    out property <color> muted: dark ? #a3a3a9 : #6b6b70;
+    out property <color> accent: dark ? #5b8ff5 : #2f6fed;
+    out property <color> accent-soft: dark ? #5b8ff533 : #2f6fed1c;
+    out property <color> error-bg: dark ? #3a2223 : #fdeeee;
+    out property <color> error: dark ? #ff9d94 : #b3261e;
+    out property <color> success: dark ? #6fd49c : #1b7f4b;
+    out property <color> key: dark ? #ffffff1a : #0000000f;
+    out property <color> hover: dark ? #ffffff14 : #0000000d;
+}
+
+component Icon inherits Image {
+    in property <string> name;
+    width: 16px;
+    height: 16px;
+    source: name == "draft" ? @image-url("icons/draft.svg")
+        : name == "explain" ? @image-url("icons/explain.svg")
+        : name == "translate" ? @image-url("icons/translate.svg")
+        : name == "copy" ? @image-url("icons/copy.svg")
+        : name == "check" ? @image-url("icons/check.svg")
+        : name == "close" ? @image-url("icons/close.svg")
+        : name == "lock" ? @image-url("icons/lock.svg")
+        : name == "sparkles" ? @image-url("icons/sparkles.svg")
+        : @image-url("icons/alert.svg");
+}
+
+component PlainButton inherits Rectangle {
+    in property <string> text;
+    in property <string> icon;
+    in property <bool> primary;
+    in property <bool> enabled: true;
+    in property <bool> done;
+    in property <color> fg: Theme.text;
+    callback clicked;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 8px;
+    border-width: primary && !done ? 0 : 1px;
+    border-color: Theme.line;
+    opacity: enabled || done ? 1 : 0.45;
+    background: primary && !done ? (touch.has-hover && enabled ? Theme.accent.brighter(8%) : Theme.accent)
+        : touch.has-hover && enabled ? Theme.hover : transparent;
+    animate background, opacity { duration: 120ms; easing: ease-out; }
+    HorizontalLayout {
+        padding-left: text == "" ? 7px : 12px;
+        padding-right: text == "" ? 7px : 12px;
+        spacing: 5px;
+        alignment: center;
+        if icon != "": Icon {
+            name: icon;
+            y: (parent.height - self.height) / 2;
+            colorize: done ? Theme.success : primary ? white : root.fg;
+        }
+        if text != "": Text {
+            text: root.text;
+            vertical-alignment: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: done ? Theme.success : primary ? white : root.fg;
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: enabled ? pointer : default;
+        clicked => {
+            if (root.enabled) {
+                root.clicked();
+            }
+        }
+    }
+}
+
+component Badge inherits Rectangle {
+    in property <string> icon;
+    in property <length> size: 24px;
+    width: size;
+    height: size;
+    border-radius: size * 0.3;
+    background: Theme.accent-soft;
+    Icon {
+        name: icon;
+        width: size * 0.62;
+        height: size * 0.62;
+        colorize: Theme.accent;
+    }
+}
+
+// A text field drawn like the Electron pages' inputs.
+component Field inherits Rectangle {
+    in-out property <string> text;
+    in property <length> font-size: 13px;
+    callback edited(string);
+    height: 30px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: edit.has-focus ? Theme.accent : Theme.line;
+    background: Theme.field;
+    animate border-color { duration: 120ms; }
+    Rectangle {
+        x: -2px;
+        y: -2px;
+        width: parent.width + 4px;
+        height: parent.height + 4px;
+        border-radius: 10px;
+        border-width: 2px;
+        border-color: edit.has-focus ? Theme.accent-soft : transparent;
+        animate border-color { duration: 120ms; }
+    }
+    edit := TextInput {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        vertical-alignment: center;
+        single-line: true;
+        text <=> root.text;
+        font-size: root.font-size;
+        color: Theme.text;
+        selection-background-color: Theme.accent-soft;
+        selection-foreground-color: Theme.text;
+        edited => {
+            root.edited(self.text);
+        }
+    }
+}
+
+export struct Hint {
+    key: string,
+    label: string,
+}
+
+// MARK: Icon bar
+
+export component Bar inherits Window {
+    // Set false on hide and true on show, so the bar fades in.
+    in property <bool> shown;
+    callback run(string);
+    title: "Fluent";
+    no-frame: true;
+    always-on-top: true;
+    width: 132px;
+    height: 40px;
+    background: transparent;
+    Rectangle {
+        border-radius: 10px;
+        background: #1f1f23f2;
+        border-width: 1px;
+        border-color: #ffffff1a;
+        opacity: root.shown ? 1 : 0;
+        animate opacity { duration: 120ms; easing: ease-out; }
+        HorizontalLayout {
+            padding-left: 4px;
+            padding-right: 4px;
+            alignment: space-around;
+            for action in ["draft", "explain", "translate"]: Rectangle {
+                width: 36px;
+                height: 30px;
+                y: 5px;
+                border-radius: 7px;
+                background: touch.has-hover ? #ffffff24 : transparent;
+                animate background { duration: 100ms; }
+                Icon {
+                    name: action;
+                    width: 18px;
+                    height: 18px;
+                    colorize: white;
+                }
+                touch := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => {
+                        root.run(action);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: Popup
+
+export component Popup inherits Window {
+    // "session" or "message"
+    in property <string> kind: "session";
+    // "below", "above" or "" when the popup does not point at the selection.
+    in property <string> side;
+    in property <length> arrow-x: 268px;
+
+    in property <string> heading;
+    in property <string> action: "draft";
+    in property <bool> generating;
+    in property <bool> editable;
+    in property <bool> failed;
+    in-out property <string> result;
+    in property <string> input-label;
+    in property <string> error-text;
+    in property <bool> error-needs-settings;
+    in property <bool> copied;
+    in property <[Hint]> hints;
+
+    in property <string> message-title;
+    in property <string> message-detail;
+    // "accessibility", "settings" or "".
+    in property <string> message-button;
+    // Set false on hide and true on show, so the card fades in.
+    in property <bool> shown;
+
+    callback dismiss();
+    callback copy();
+    callback edited(string);
+    // Returns whether the text was sent, which clears the input.
+    callback submit(string) -> bool;
+    callback retry();
+    callback open-settings();
+    callback open-accessibility();
+    callback start-drag();
+
+    // Moves focus once a generation finishes; the controller calls it.
+    public function focus-after-ready() {
+        if (root.editable) {
+            result-edit.focus();
+        } else {
+            input.focus();
+        }
+    }
+
+    // Follows the text as it streams in.
+    public function scroll-to-end() {
+        result-flick.content-y = min(0px, result-flick.height - result-flick.content-height);
+    }
+
+    property <bool> can-copy: kind == "session" && !generating && result != "";
+
+    title: "Fluent";
+    no-frame: true;
+    always-on-top: true;
+    width: 536px;
+    height: 386px;
+    background: transparent;
+    forward-focus: keys;
+
+    keys := FocusScope {
+        capture-key-pressed(event) => {
+            if (event.text == Key.Escape) {
+                root.dismiss();
+                return accept;
+            }
+            reject
+        }
+
+      Rectangle {
+        // Fades in and settles a few points toward the selection.
+        opacity: root.shown ? 1 : 0;
+        y: root.shown ? 0 : root.side == "above" ? 4px : -4px;
+        animate opacity { duration: 140ms; easing: ease-out; }
+        animate y { duration: 160ms; easing: ease-out; }
+
+        card := Rectangle {
+            x: 18px;
+            y: root.side == "below" ? 28px : root.side == "above" ? 18px : 23px;
+            width: parent.width - 36px;
+            height: 340px;
+            border-radius: 12px;
+            border-width: 1px;
+            border-color: Theme.line;
+            background: Theme.bg;
+            drop-shadow-blur: 18px;
+            drop-shadow-offset-y: 6px;
+            drop-shadow-color: #0000002e;
+        }
+
+        // The arrow: a triangle drawn over the card's edge, toward the selection.
+        if root.side == "below": Path {
+            x: root.arrow-x - 9px;
+            y: card.y - 9px;
+            width: 18px;
+            height: 10px;
+            viewbox-width: 18;
+            viewbox-height: 10;
+            commands: "M 0 10 L 9 1 L 18 10 Z";
+            fill: Theme.bg;
+            stroke: Theme.line;
+            stroke-width: 1px;
+        }
+        if root.side == "below": Rectangle {
+            x: root.arrow-x - 8px;
+            y: card.y;
+            width: 16px;
+            height: 1px;
+            background: Theme.bg;
+        }
+        if root.side == "above": Path {
+            x: root.arrow-x - 9px;
+            y: card.y + card.height - 1px;
+            width: 18px;
+            height: 10px;
+            viewbox-width: 18;
+            viewbox-height: 10;
+            commands: "M 0 0 L 9 9 L 18 0 Z";
+            fill: Theme.bg;
+            stroke: Theme.line;
+            stroke-width: 1px;
+        }
+        if root.side == "above": Rectangle {
+            x: root.arrow-x - 8px;
+            y: card.y + card.height - 1px;
+            width: 16px;
+            height: 1px;
+            background: Theme.bg;
+        }
+
+        VerticalLayout {
+            visible: root.kind == "session";
+            x: card.x + 14px;
+            y: card.y + 14px;
+            width: card.width - 28px;
+            height: card.height - 28px;
+            spacing: 10px;
+
+            // The header moves the frameless window.
+            header := HorizontalLayout {
+                height: 24px;
+                spacing: 8px;
+                Badge {
+                    icon: root.action;
+                }
+                Text {
+                    text: root.heading;
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: Theme.text;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    TouchArea {
+                        pointer-event(event) => {
+                            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                root.start-drag();
+                            }
+                        }
+                    }
+                }
+                // The status sits right next to the close button, at the right edge.
+                HorizontalLayout {
+                    horizontal-stretch: 0;
+                    spacing: 4px;
+                    if root.copied || root.generating: HorizontalLayout {
+                        horizontal-stretch: 0;
+                        spacing: 6px;
+                        if !root.copied: Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            y: (parent.height - 6px) / 2;
+                            border-radius: 3px;
+                            background: Theme.accent;
+                            opacity: 0.25 + 0.75 * abs(sin(animation-tick() * 180deg / 1s));
+                        }
+                        Text {
+                            text: root.copied ? "Copied to clipboard" : "Writing…";
+                            vertical-alignment: center;
+                            font-size: 12px;
+                            color: root.copied ? Theme.success : Theme.muted;
+                        }
+                    }
+                    PlainButton {
+                        icon: "close";
+                        width: 24px;
+                        height: 24px;
+                        border-width: 0;
+                        fg: Theme.muted;
+                        clicked => {
+                            root.dismiss();
+                        }
+                    }
+                }
+            }
+
+            FocusScope {
+                vertical-stretch: 1;
+                capture-key-pressed(event) => {
+                    if (event.text == Key.Return && !event.modifiers.shift && root.editable && !root.generating) {
+                        root.copy();
+                        return accept;
+                    }
+                    reject
+                }
+                // A plain field rather than TextEdit, whose Cupertino look reads as disabled.
+                Rectangle {
+                    property <bool> focused: result-edit.has-focus && !result-edit.read-only;
+                    border-radius: 10px;
+                    border-width: 1px;
+                    border-color: focused ? Theme.accent : Theme.line;
+                    background: Theme.field;
+                    animate border-color { duration: 120ms; }
+                    // The soft focus ring outside the border.
+                    Rectangle {
+                        x: -2px;
+                        y: -2px;
+                        width: parent.width + 4px;
+                        height: parent.height + 4px;
+                        border-radius: 12px;
+                        border-width: 2px;
+                        border-color: parent.focused ? Theme.accent-soft : transparent;
+                        animate border-color { duration: 120ms; }
+                    }
+                    Rectangle {
+                    clip: true;
+                    result-flick := Flickable {
+                        x: 12px;
+                        y: 10px;
+                        width: parent.width - 24px;
+                        height: parent.height - 20px;
+                        content-width: self.width;
+                        content-height: result-edit.height;
+                        result-edit := TextInput {
+                            width: result-flick.width;
+                            height: max(result-flick.height, self.preferred-height);
+                            single-line: false;
+                            wrap: word-wrap;
+                            text <=> root.result;
+                            read-only: root.generating || !root.editable;
+                            font-size: 14px;
+                            // Close to the old page's 1.5 line height.
+                            line-height-factor: 1.3;
+                            color: Theme.text;
+                            selection-background-color: Theme.accent-soft;
+                            selection-foreground-color: Theme.text;
+                            edited => {
+                                root.edited(self.text);
+                            }
+                            // Keeps the caret in view while typing or moving it.
+                            cursor-position-changed(cpos) => {
+                                if (cpos.y + result-flick.content-y < 0) {
+                                    result-flick.content-y = -cpos.y;
+                                } else if (cpos.y + 20px + result-flick.content-y > result-flick.height) {
+                                    result-flick.content-y = result-flick.height - cpos.y - 20px;
+                                }
+                            }
+                        }
+                    }
+                    if root.result == "" && root.failed: Text {
+                        x: 12px;
+                        y: 10px;
+                        text: "No result yet.";
+                        font-size: 14px;
+                        color: Theme.muted;
+                    }
+                    }
+                }
+            }
+
+            if root.failed: Rectangle {
+                height: 44px;
+                border-radius: 10px;
+                background: Theme.error-bg;
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 8px;
+                    spacing: 8px;
+                    Icon {
+                        name: "alert";
+                        y: (parent.height - self.height) / 2;
+                        colorize: Theme.error;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.error-text;
+                        color: Theme.error;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                        wrap: word-wrap;
+                        overflow: elide;
+                    }
+                    PlainButton {
+                        y: 7px;
+                        text: root.error-needs-settings ? "Open Settings" : "Retry";
+                        fg: Theme.error;
+                        clicked => {
+                            if (root.error-needs-settings) {
+                                root.open-settings();
+                            } else {
+                                root.retry();
+                            }
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 36px;
+                border-radius: 10px;
+                border-width: 1px;
+                border-color: input.has-focus ? Theme.accent : Theme.line;
+                background: Theme.field;
+                animate border-color { duration: 120ms; }
+                Rectangle {
+                    x: -2px;
+                    y: -2px;
+                    width: parent.width + 4px;
+                    height: parent.height + 4px;
+                    border-radius: 12px;
+                    border-width: 2px;
+                    border-color: input.has-focus ? Theme.accent-soft : transparent;
+                    animate border-color { duration: 120ms; }
+                }
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    spacing: 8px;
+                    Icon {
+                        name: "sparkles";
+                        width: 15px;
+                        height: 15px;
+                        y: (parent.height - self.height) / 2;
+                        colorize: Theme.muted;
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        input := TextInput {
+                            width: parent.width;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            single-line: true;
+                            font-size: 13px;
+                            color: Theme.text;
+                            selection-background-color: Theme.accent-soft;
+                            selection-foreground-color: Theme.text;
+                            accepted => {
+                                if (root.submit(self.text)) {
+                                    self.text = "";
+                                }
+                            }
+                        }
+                        if input.text == "": Text {
+                            width: parent.width;
+                            height: parent.height;
+                            vertical-alignment: center;
+                            text: root.input-label;
+                            font-size: 13px;
+                            color: Theme.muted;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                height: 30px;
+                spacing: 10px;
+                HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 10px;
+                    alignment: start;
+                    for hint in root.hints: HorizontalLayout {
+                        spacing: 4px;
+                        Rectangle {
+                            y: (parent.height - 18px) / 2;
+                            height: 18px;
+                            width: key-text.preferred-width + 10px;
+                            border-radius: 4px;
+                            background: Theme.key;
+                            key-text := Text {
+                                text: hint.key;
+                                font-size: 11px;
+                                color: Theme.muted;
+                            }
+                        }
+                        Text {
+                            text: hint.label;
+                            font-size: 12px;
+                            color: Theme.muted;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                PlainButton {
+                    primary: true;
+                    done: root.copied;
+                    enabled: root.can-copy;
+                    icon: root.copied ? "check" : "copy";
+                    text: root.copied ? "Copied" : "Copy";
+                    clicked => {
+                        root.copy();
+                    }
+                }
+            }
+        }
+
+        if root.kind == "message": Rectangle {
+            x: card.x;
+            y: card.y;
+            width: card.width;
+            height: card.height;
+            TouchArea {
+                pointer-event(event) => {
+                    if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                        root.start-drag();
+                    }
+                }
+            }
+            PlainButton {
+                x: parent.width - 38px;
+                y: 14px;
+                width: 24px;
+                height: 24px;
+                icon: "close";
+                border-width: 0;
+                fg: Theme.muted;
+                clicked => {
+                    root.dismiss();
+                }
+            }
+            VerticalLayout {
+                padding-left: 32px;
+                padding-right: 32px;
+                spacing: 10px;
+                alignment: center;
+                HorizontalLayout {
+                    alignment: center;
+                    Badge {
+                        icon: root.message-button == "accessibility" ? "lock" : "alert";
+                        size: 40px;
+                    }
+                }
+                Text {
+                    text: root.message-title;
+                    horizontal-alignment: center;
+                    font-size: 15px;
+                    font-weight: 500;
+                    color: Theme.text;
+                }
+                Text {
+                    text: root.message-detail;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                    line-height-factor: 1.25;
+                    font-size: 13px;
+                    color: Theme.muted;
+                }
+                if root.message-button != "": HorizontalLayout {
+                    alignment: center;
+                    PlainButton {
+                        primary: true;
+                        text: root.message-button == "accessibility" ? "Open System Settings" : "Open Settings";
+                        clicked => {
+                            if (root.message-button == "accessibility") {
+                                root.open-accessibility();
+                            } else {
+                                root.open-settings();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+      }
+    }
+}
+
+// MARK: Settings
+
+component Section inherits VerticalLayout {
+    in property <string> heading;
+    spacing: 6px;
+    Text {
+        text: heading;
+        font-size: 12px;
+        font-weight: 500;
+        color: Theme.muted;
+        x: 2px;
+    }
+    Rectangle {
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: Theme.line;
+        background: Theme.card;
+        VerticalLayout {
+            @children
+        }
+    }
+}
+
+component Row inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> help;
+    in property <bool> first;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 11px;
+    padding-bottom: 11px;
+    spacing: 16px;
+    min-height: 44px;
+    VerticalLayout {
+        horizontal-stretch: 1;
+        alignment: center;
+        spacing: 3px;
+        Text {
+            text: label;
+            font-size: 13px;
+            font-weight: 500;
+            color: Theme.text;
+        }
+        if help != "": Text {
+            text: help;
+            font-size: 12px;
+            color: Theme.muted;
+            wrap: word-wrap;
+            line-height-factor: 1.2;
+        }
+    }
+    // Keeps controls at their own height when the label wraps to two lines.
+    VerticalLayout {
+        alignment: center;
+        @children
+    }
+}
+
+component Divider inherits Rectangle {
+    height: 1px;
+    background: Theme.line;
+}
+
+export component SettingsWindow inherits Window {
+    in property <[string]> hotkey-labels;
+    in property <[string]> model-labels;
+    in property <bool> hook-running: true;
+
+    in-out property <int> hotkey-index;
+    in-out property <int> model-index;
+    in-out property <bool> auto-bar;
+    in-out property <string> primary-language;
+    in-out property <string> secondary-language;
+    in-out property <string> cli-path;
+
+    // Set by the controller after comparing with the saved values.
+    in property <bool> can-save;
+    in property <string> status;
+    // "error", "saved" or "".
+    in property <string> status-kind;
+
+    callback changed();
+    callback save();
+    callback edit-style();
+
+    title: "Fluent Settings";
+    always-on-top: true;
+    width: 500px;
+    height: 640px;
+    background: Theme.bg;
+
+    VerticalLayout {
+        ScrollView {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 16px;
+                spacing: 16px;
+                alignment: start;
+                if !root.hook-running: Rectangle {
+                    border-radius: 10px;
+                    background: Theme.error-bg;
+                    HorizontalLayout {
+                        padding: 10px;
+                        spacing: 8px;
+                        Icon {
+                            name: "alert";
+                            colorize: Theme.error;
+                        }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: "Mouse monitoring is not running, so the icon bar only appears with the hotkey.";
+                            wrap: word-wrap;
+                            font-size: 12px;
+                            color: Theme.error;
+                        }
+                    }
+                }
+                Section {
+                    heading: "Selection";
+                    Row {
+                        label: "Hotkey";
+                        help: "Shows the icon bar for selected text.";
+                        ComboBox {
+                            width: 196px;
+                            model: root.hotkey-labels;
+                            current-index <=> root.hotkey-index;
+                            selected => {
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    Row {
+                        label: "Show icon bar automatically";
+                        help: "Appears after you select text with the mouse.";
+                        Switch {
+                            checked <=> root.auto-bar;
+                            toggled => {
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+                Section {
+                    heading: "Languages";
+                    Row {
+                        label: "Primary language";
+                        help: "Used for explanations and translations.";
+                        Field {
+                            width: 196px;
+                            text <=> root.primary-language;
+                            edited => {
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    Row {
+                        label: "Secondary language";
+                        help: "Text in your primary language is translated into this one.";
+                        Field {
+                            width: 196px;
+                            text <=> root.secondary-language;
+                            edited => {
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+                Section {
+                    heading: "AI";
+                    Row {
+                        label: "Model";
+                        help: "For Draft reply and Translate. Explain always uses Haiku.";
+                        ComboBox {
+                            width: 196px;
+                            model: root.model-labels;
+                            current-index <=> root.model-index;
+                            selected => {
+                                root.changed();
+                            }
+                        }
+                    }
+                    Divider { }
+                    Row {
+                        label: "Reply style";
+                        help: "Describe how your drafted replies should sound.";
+                        PlainButton {
+                            text: "Edit Style…";
+                            clicked => {
+                                root.edit-style();
+                            }
+                        }
+                    }
+                    Divider { }
+                    VerticalLayout {
+                        padding: 12px;
+                        spacing: 6px;
+                        alignment: start;
+                        Text {
+                            text: "Claude CLI path";
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: Theme.text;
+                        }
+                        Field {
+                            text <=> root.cli-path;
+                            font-size: 12px;
+                            edited => {
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Divider { }
+        HorizontalLayout {
+            padding: 12px;
+            padding-left: 16px;
+            padding-right: 16px;
+            spacing: 8px;
+            HorizontalLayout {
+                horizontal-stretch: 1;
+                spacing: 6px;
+                if root.status-kind != "": Icon {
+                    name: root.status-kind == "saved" ? "check" : "alert";
+                    y: (parent.height - self.height) / 2;
+                    colorize: root.status-kind == "saved" ? Theme.success : Theme.error;
+                }
+                Text {
+                    text: root.status;
+                    vertical-alignment: center;
+                    font-size: 12px;
+                    color: root.status-kind == "saved" ? Theme.success : root.status-kind == "error" ? Theme.error : Theme.muted;
+                }
+            }
+            PlainButton {
+                primary: true;
+                min-width: 72px;
+                text: "Save";
+                enabled: root.can-save;
+                clicked => {
+                    root.save();
+                }
+            }
+        }
+    }
+}
+
+// Lets tools pick light or dark, for the screenshots in examples/.
+export { Palette } from "std-widgets.slint";
