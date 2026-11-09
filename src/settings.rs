@@ -41,6 +41,8 @@ pub struct Settings {
     pub secondary_language: String,
     pub auto_bar: bool,
     pub style_template_installed: bool,
+    /// Where Add to vocabulary sends entries; empty hides the action.
+    pub inbox_url: String,
 }
 
 pub fn default_cli_path(windows: bool, home: &str) -> String {
@@ -61,6 +63,7 @@ pub fn defaults() -> Settings {
         secondary_language: "English".into(),
         auto_bar: true,
         style_template_installed: false,
+        inbox_url: String::new(),
     }
 }
 
@@ -86,7 +89,17 @@ pub fn parse_settings(raw: &Value, defaults: &Settings) -> Settings {
         style_template_installed: get("styleTemplateInstalled")
             .and_then(Value::as_bool)
             .unwrap_or(defaults.style_template_installed),
+        inbox_url: get("inboxUrl")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|url| is_inbox_url(url))
+            .map_or_else(|| defaults.inbox_url.clone(), str::to_string),
     }
+}
+
+/// An empty value turns the action off; anything else must be an http(s) address.
+pub fn is_inbox_url(url: &str) -> bool {
+    url.is_empty() || url.starts_with("https://") || url.starts_with("http://")
 }
 
 pub fn load_settings(path: &Path, defaults: &Settings) -> Settings {
@@ -109,6 +122,7 @@ pub fn save_settings(path: &Path, settings: &Settings) -> std::io::Result<()> {
         "secondaryLanguage": settings.secondary_language,
         "autoBar": settings.auto_bar,
         "styleTemplateInstalled": settings.style_template_installed,
+        "inboxUrl": settings.inbox_url,
     });
     let temporary = path.with_extension("json.tmp");
     fs::write(&temporary, serde_json::to_string_pretty(&value)?)?;
@@ -128,6 +142,7 @@ mod tests {
             secondary_language: "English".into(),
             auto_bar: true,
             style_template_installed: false,
+            inbox_url: String::new(),
         }
     }
 
@@ -158,6 +173,8 @@ mod tests {
             json!({ "primaryLanguage": "" }),
             json!({ "secondaryLanguage": null }),
             json!({ "autoBar": "yes" }),
+            json!({ "inboxUrl": "ftp://x" }),
+            json!({ "inboxUrl": 3 }),
             json!(null),
             json!("text"),
             json!([]),
@@ -184,6 +201,16 @@ mod tests {
         let raw: Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(raw["model"], "haiku");
         assert_eq!(raw["cliPath"], "/default/claude");
+    }
+
+    #[test]
+    fn keeps_and_saves_the_inbox_url() {
+        let url = "https://abc.mockapi.io/api/v1/inbox";
+        assert_eq!(parse_settings(&json!({ "inboxUrl": format!(" {url} ") }), &defaults()).inbox_url, url);
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("settings.json");
+        save_settings(&path, &Settings { inbox_url: url.into(), ..defaults() }).unwrap();
+        assert_eq!(load_settings(&path, &defaults()).inbox_url, url);
     }
 
     #[test]

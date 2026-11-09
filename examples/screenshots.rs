@@ -104,6 +104,9 @@ fn main() {
     bar.set_shown(true);
     std::thread::sleep(std::time::Duration::from_millis(300));
     save_png(&render(&take(), (132.0, 40.0), 2.0), &out.join("1-bar.png"));
+    let with_vocab: Vec<slint::SharedString> = ["draft", "explain", "translate", "vocab"].map(Into::into).to_vec();
+    bar.set_actions(ModelRc::new(VecModel::from(with_vocab)));
+    save_png(&render(&take(), (172.0, 40.0), 2.0), &out.join("1-bar-vocab.png"));
 
     let popup = Popup::new().unwrap();
     popup.show().unwrap();
@@ -161,6 +164,26 @@ fn main() {
     save_png(&render(&popup_window, size, 2.0), &out.join("6-permission.png"));
     frames.push((render(&popup_window, size, 1.5), 150));
 
+    // Add to vocabulary: suggesting, ready, then a failed save.
+    popup.set_kind("vocab".into());
+    popup.set_side("below".into());
+    popup.set_arrow_x(268.0);
+    popup.set_vocab_phrase("ubiquitous".into());
+    popup.set_vocab_suggesting(true);
+    save_png(&render(&popup_window, size, 2.0), &out.join("10-vocab-suggesting.png"));
+    popup.set_vocab_suggesting(false);
+    popup.set_vocab_meaning("có mặt ở khắp nơi".into());
+    popup.set_vocab_example("Today smartphones are ubiquitous in daily life.".into());
+    popup.set_vocab_example_vi("Ngày nay điện thoại thông minh có mặt ở khắp nơi trong đời sống.".into());
+    popup.set_vocab_can_save(true);
+    save_png(&render(&popup_window, size, 2.0), &out.join("11-vocab-ready.png"));
+    popup.set_vocab_error("The inbox returned 500. Your entry is kept; try again.".into());
+    save_png(&render(&popup_window, size, 2.0), &out.join("12-vocab-failed.png"));
+    popup.set_vocab_error("".into());
+    popup.set_vocab_saved(true);
+    save_png(&render(&popup_window, size, 2.0), &out.join("13-vocab-saved.png"));
+    popup.set_vocab_saved(false);
+
     // Dark mode.
     popup.global::<Palette>().set_color_scheme(slint::language::ColorScheme::Dark);
     session(&popup, "translate", "Translate", true, "Rewrite: more casual, shorter…");
@@ -185,6 +208,7 @@ fn main() {
     settings.set_primary_language("Vietnamese".into());
     settings.set_secondary_language("English".into());
     settings.set_cli_path("/Users/a/.local/bin/claude".into());
+    settings.set_inbox_url("https://abc123.mockapi.io/api/v1/inbox".into());
     settings.set_status("Saved".into());
     settings.set_status_kind("saved".into());
     save_png(&render(&settings_window, (500.0, 640.0), 2.0), &out.join("8-settings.png"));

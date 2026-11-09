@@ -30,6 +30,7 @@ component Icon inherits Image {
         : name == "close" ? @image-url("icons/close.svg")
         : name == "lock" ? @image-url("icons/lock.svg")
         : name == "sparkles" ? @image-url("icons/sparkles.svg")
+        : name == "vocab" ? @image-url("icons/vocab.svg")
         : @image-url("icons/alert.svg");
 }
 
@@ -97,7 +98,12 @@ component Badge inherits Rectangle {
 component Field inherits Rectangle {
     in-out property <string> text;
     in property <length> font-size: 13px;
+    in property <string> placeholder;
     callback edited(string);
+    callback accepted();
+    public function focus-text() {
+        edit.focus();
+    }
     height: 30px;
     border-radius: 8px;
     border-width: 1px;
@@ -128,7 +134,76 @@ component Field inherits Rectangle {
         edited => {
             root.edited(self.text);
         }
+        accepted => {
+            root.accepted();
+        }
     }
+    if root.text == "" && root.placeholder != "": Text {
+        x: 10px;
+        width: parent.width - 20px;
+        height: parent.height;
+        vertical-alignment: center;
+        text: root.placeholder;
+        font-size: root.font-size;
+        color: Theme.muted;
+        overflow: elide;
+    }
+}
+
+// A multi-line text field with the same look as Field.
+component AreaField inherits Rectangle {
+    in-out property <string> text;
+    in property <string> placeholder;
+    callback edited(string);
+    height: 44px;
+    border-radius: 8px;
+    border-width: 1px;
+    border-color: edit.has-focus ? Theme.accent : Theme.line;
+    background: Theme.field;
+    animate border-color { duration: 120ms; }
+    Rectangle {
+        x: -2px;
+        y: -2px;
+        width: parent.width + 4px;
+        height: parent.height + 4px;
+        border-radius: 10px;
+        border-width: 2px;
+        border-color: edit.has-focus ? Theme.accent-soft : transparent;
+        animate border-color { duration: 120ms; }
+    }
+    Rectangle {
+        clip: true;
+        edit := TextInput {
+            x: 10px;
+            y: 6px;
+            width: parent.width - 20px;
+            height: parent.height - 12px;
+            single-line: false;
+            wrap: word-wrap;
+            text <=> root.text;
+            font-size: 13px;
+            color: Theme.text;
+            selection-background-color: Theme.accent-soft;
+            selection-foreground-color: Theme.text;
+            edited => {
+                root.edited(self.text);
+            }
+        }
+    }
+    if root.text == "" && root.placeholder != "": Text {
+        x: 10px;
+        y: 6px;
+        text: root.placeholder;
+        font-size: 13px;
+        color: Theme.muted;
+    }
+}
+
+component FieldLabel inherits Text {
+    vertical-stretch: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: Theme.muted;
 }
 
 export struct Hint {
@@ -141,11 +216,13 @@ export struct Hint {
 export component Bar inherits Window {
     // Set false on hide and true on show, so the bar fades in.
     in property <bool> shown;
+    // The icons to show; the controller sizes the window to match (see geometry::bar_size).
+    in property <[string]> actions: ["draft", "explain", "translate"];
     callback run(string);
     title: "Fluent";
     no-frame: true;
     always-on-top: true;
-    width: 132px;
+    width: 12px + root.actions.length * 40px;
     height: 40px;
     background: transparent;
     Rectangle {
@@ -159,7 +236,7 @@ export component Bar inherits Window {
             padding-left: 4px;
             padding-right: 4px;
             alignment: space-around;
-            for action in ["draft", "explain", "translate"]: Rectangle {
+            for action in root.actions: Rectangle {
                 width: 36px;
                 height: 30px;
                 y: 5px;
@@ -211,6 +288,20 @@ export component Popup inherits Window {
     // Set false on hide and true on show, so the card fades in.
     in property <bool> shown;
 
+    // Add to vocabulary, shown when kind is "vocab".
+    in-out property <string> vocab-phrase;
+    in-out property <string> vocab-meaning;
+    in-out property <string> vocab-example;
+    in-out property <string> vocab-example-vi;
+    in property <string> vocab-language: "Vietnamese";
+    in property <bool> vocab-suggesting;
+    in property <bool> vocab-saving;
+    in property <bool> vocab-saved;
+    in property <bool> vocab-can-save;
+    in property <string> vocab-error;
+    callback vocab-edited();
+    callback vocab-save();
+
     callback dismiss();
     callback copy();
     callback edited(string);
@@ -228,6 +319,10 @@ export component Popup inherits Window {
         } else {
             input.focus();
         }
+    }
+
+    public function focus-vocab() {
+        phrase-field.focus-text();
     }
 
     // Follows the text as it streams in.
@@ -593,6 +688,217 @@ export component Popup inherits Window {
             }
         }
 
+        FocusScope {
+            visible: root.kind == "vocab";
+            x: card.x + 14px;
+            y: card.y + 14px;
+            width: card.width - 28px;
+            height: card.height - 28px;
+            capture-key-pressed(event) => {
+                if (event.text == Key.Return && (event.modifiers.control || event.modifiers.meta)) {
+                    root.vocab-save();
+                    return accept;
+                }
+                reject
+            }
+          VerticalLayout {
+            spacing: 10px;
+
+            HorizontalLayout {
+                height: 24px;
+                spacing: 8px;
+                Badge {
+                    icon: root.vocab-saved ? "check" : "vocab";
+                }
+                Text {
+                    text: root.vocab-saved ? "Added to inbox" : "Add to vocabulary";
+                    vertical-alignment: center;
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: root.vocab-saved ? Theme.success : Theme.text;
+                }
+                Rectangle {
+                    horizontal-stretch: 1;
+                    TouchArea {
+                        pointer-event(event) => {
+                            if (event.kind == PointerEventKind.down && event.button == PointerEventButton.left) {
+                                root.start-drag();
+                            }
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    horizontal-stretch: 0;
+                    spacing: 4px;
+                    if root.vocab-suggesting || root.vocab-saving: HorizontalLayout {
+                        horizontal-stretch: 0;
+                        spacing: 6px;
+                        Rectangle {
+                            width: 6px;
+                            height: 6px;
+                            y: (parent.height - 6px) / 2;
+                            border-radius: 3px;
+                            background: Theme.accent;
+                            opacity: 0.25 + 0.75 * abs(sin(animation-tick() * 180deg / 1s));
+                        }
+                        Text {
+                            text: root.vocab-saving ? "Saving…" : "Suggesting…";
+                            vertical-alignment: center;
+                            font-size: 12px;
+                            color: Theme.muted;
+                        }
+                    }
+                    PlainButton {
+                        icon: "close";
+                        width: 24px;
+                        height: 24px;
+                        border-width: 0;
+                        fg: Theme.muted;
+                        clicked => {
+                            root.dismiss();
+                        }
+                    }
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                vertical-stretch: 0;
+                VerticalLayout {
+                    spacing: 5px;
+                    alignment: start;
+                    FieldLabel {
+                        text: "Phrase *";
+                    }
+                    phrase-field := Field {
+                        text <=> root.vocab-phrase;
+                        edited => {
+                            root.vocab-edited();
+                        }
+                        accepted => {
+                            root.vocab-save();
+                        }
+                    }
+                }
+                VerticalLayout {
+                    spacing: 5px;
+                    alignment: start;
+                    FieldLabel {
+                        text: "Meaning *";
+                    }
+                    Field {
+                        text <=> root.vocab-meaning;
+                        placeholder: root.vocab-suggesting ? "Suggesting…" : "";
+                        edited => {
+                            root.vocab-edited();
+                        }
+                        accepted => {
+                            root.vocab-save();
+                        }
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                vertical-stretch: 0;
+                FieldLabel {
+                    text: "Example";
+                }
+                AreaField {
+                    text <=> root.vocab-example;
+                    placeholder: root.vocab-suggesting ? "Suggesting…" : "";
+                    edited => {
+                        root.vocab-edited();
+                    }
+                }
+            }
+
+            VerticalLayout {
+                spacing: 5px;
+                vertical-stretch: 0;
+                FieldLabel {
+                    text: "Example (" + root.vocab-language + ")";
+                }
+                AreaField {
+                    text <=> root.vocab-example-vi;
+                    placeholder: root.vocab-suggesting ? "Suggesting…" : "";
+                    edited => {
+                        root.vocab-edited();
+                    }
+                }
+            }
+
+            Rectangle {
+                vertical-stretch: 1;
+            }
+
+            HorizontalLayout {
+                height: 30px;
+                spacing: 8px;
+                if root.vocab-error != "": HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 6px;
+                    Icon {
+                        name: "alert";
+                        y: (parent.height - self.height) / 2;
+                        colorize: Theme.error;
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.vocab-error;
+                        vertical-alignment: center;
+                        font-size: 12px;
+                        color: Theme.error;
+                        overflow: elide;
+                    }
+                }
+                if root.vocab-error == "": HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 10px;
+                    alignment: start;
+                    for hint in [{ key: "⏎", label: "Add" }, { key: "esc", label: "Close" }]: HorizontalLayout {
+                        spacing: 4px;
+                        Rectangle {
+                            y: (parent.height - 18px) / 2;
+                            height: 18px;
+                            width: vocab-key.preferred-width + 10px;
+                            border-radius: 4px;
+                            background: Theme.key;
+                            vocab-key := Text {
+                                text: hint.key;
+                                font-size: 11px;
+                                color: Theme.muted;
+                            }
+                        }
+                        Text {
+                            text: hint.label;
+                            font-size: 12px;
+                            color: Theme.muted;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+                PlainButton {
+                    text: "Cancel";
+                    clicked => {
+                        root.dismiss();
+                    }
+                }
+                PlainButton {
+                    primary: true;
+                    done: root.vocab-saved;
+                    enabled: root.vocab-can-save && !root.vocab-saving;
+                    icon: "check";
+                    text: root.vocab-saved ? "Added" : root.vocab-saving ? "Adding…" : "Add";
+                    clicked => {
+                        root.vocab-save();
+                    }
+                }
+            }
+          }
+        }
+
         if root.kind == "message": Rectangle {
             x: card.x;
             y: card.y;
@@ -738,6 +1044,7 @@ export component SettingsWindow inherits Window {
     in-out property <string> primary-language;
     in-out property <string> secondary-language;
     in-out property <string> cli-path;
+    in-out property <string> inbox-url;
 
     // Set by the controller after comparing with the saved values.
     in property <bool> can-save;
@@ -872,6 +1179,34 @@ export component SettingsWindow inherits Window {
                         Field {
                             text <=> root.cli-path;
                             font-size: 12px;
+                            edited => {
+                                root.changed();
+                            }
+                        }
+                    }
+                }
+                Section {
+                    heading: "Vocabulary";
+                    VerticalLayout {
+                        padding: 12px;
+                        spacing: 6px;
+                        alignment: start;
+                        Text {
+                            text: "Inbox API URL";
+                            font-size: 13px;
+                            font-weight: 500;
+                            color: Theme.text;
+                        }
+                        Text {
+                            text: "Add to vocabulary sends words here. Leave empty to hide it from the icon bar.";
+                            font-size: 12px;
+                            color: Theme.muted;
+                            wrap: word-wrap;
+                        }
+                        Field {
+                            text <=> root.inbox-url;
+                            font-size: 12px;
+                            placeholder: "https://…/api/v1/inbox";
                             edited => {
                                 root.changed();
                             }

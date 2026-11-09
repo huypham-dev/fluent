@@ -14,6 +14,7 @@ mod selection_detector;
 mod session;
 mod settings;
 mod store;
+mod vocab;
 
 slint::include_modules!();
 

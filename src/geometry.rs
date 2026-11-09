@@ -26,7 +26,10 @@ impl Rect {
     }
 }
 
-pub const BAR_SIZE: Size = Size { width: 132.0, height: 40.0 };
+/// The icon bar's size for a number of icons; matches the Bar window in app.slint.
+pub fn bar_size(icons: usize) -> Size {
+    Size { width: 12.0 + 40.0 * icons as f64, height: 40.0 }
+}
 const POINTER_GAP: f64 = 12.0;
 
 /// The visible card, and the transparent room around it for the arrow and the shadow.

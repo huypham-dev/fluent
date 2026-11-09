@@ -4,13 +4,14 @@
 use crate::actions::ActionId;
 use crate::capture::{Capture, CaptureOptions, capture_selection, new_marker};
 use crate::cli::{CliErrorKind, CliEvent, CliOptions, CliRun, run_cli};
-use crate::geometry::{BAR_SIZE, Point, PopupSide, bar_position, popup_centered, popup_placement, selection_anchor};
+use crate::geometry::{Point, PopupSide, bar_position, bar_size, popup_centered, popup_placement, selection_anchor};
 use crate::held_keys::HeldKeys;
 use crate::platform::{self, HookEvent};
 use crate::selection_detector::{MouseInfo, SelectionDetector};
 use crate::session::{ActionSession, Phase, Run, SessionConfig};
 use crate::settings::{self, HOTKEYS, Model, Settings};
 use crate::store::{StyleStore, log_event};
+use crate::vocab::{self, Entry, Suggestion};
 use crate::{Bar, Hint, Popup, SettingsWindow};
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use global_hotkey::{GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState};
@@ -35,6 +36,14 @@ const REFOCUS_SETTLE: Duration = Duration::from_millis(80);
 const COPY_RESEND: Duration = Duration::from_millis(150);
 const REFOCUSED_COPY_TIMEOUT: Duration = Duration::from_millis(1000);
 const CLI_INACTIVITY: Duration = Duration::from_secs(30);
+const VOCAB_SAVED_CLOSE_DELAY: Duration = Duration::from_millis(900);
+
+/// What a click on the icon bar asks for once the selection is copied.
+#[derive(Clone, Copy)]
+enum Target {
+    Action(ActionId),
+    Vocab,
+}
 const IS_MAC: bool = cfg!(target_os = "macos");
 
 #[derive(Clone)]
@@ -69,6 +78,11 @@ pub struct App {
     settings_open: Cell<bool>,
     bar_timer: Timer,
     session: RefCell<Option<ActionSession>>,
+    /// The Add to vocabulary form is open in the popup.
+    vocab_open: Cell<bool>,
+    vocab_saving: Cell<bool>,
+    vocab_saved: Cell<bool>,
+    vocab_cli: RefCell<Option<CliRun>>,
     /// Counts sessions, so a delayed close only closes the session it was meant for.
     session_number: Cell<u64>,
     cli: RefCell<Option<CliRun>>,
@@ -136,6 +150,10 @@ impl App {
             settings_open: Cell::new(false),
             bar_timer: Timer::default(),
             session: RefCell::new(None),
+            vocab_open: Cell::new(false),
+            vocab_saving: Cell::new(false),
+            vocab_saved: Cell::new(false),
+            vocab_cli: RefCell::new(None),
             session_number: Cell::new(0),
             cli: RefCell::new(None),
             last_phase: Cell::new(None),
@@ -260,9 +278,11 @@ impl App {
     }
 
     fn wire_callbacks(self: &Rc<Self>) {
-        self.bar.on_run(|action| {
-            if let Some(action) = ActionId::from_key(&action) {
-                with_app(|app| app.run_action(action));
+        self.bar.on_run(|key| {
+            let target =
+                if key == "vocab" { Some(Target::Vocab) } else { ActionId::from_key(&key).map(Target::Action) };
+            if let Some(target) = target {
+                with_app(|app| app.run_action(target));
             }
         });
 
@@ -296,6 +316,13 @@ impl App {
                 }
             })
         });
+        popup.on_vocab_edited(|| {
+            with_app(|app| {
+                app.popup.set_vocab_error(SharedString::new());
+                app.refresh_vocab();
+            })
+        });
+        popup.on_vocab_save(|| with_app(|app| app.save_vocab()));
         popup.on_open_settings(|| with_app(|app| app.open_settings()));
         popup.on_open_accessibility(platform::open_accessibility_settings);
         popup.on_start_drag(|| {
@@ -407,8 +434,14 @@ impl App {
             let source = self.source_app.clone();
             thread::spawn(move || *source.lock().unwrap() = platform::frontmost_bundle_id());
         }
+        let mut icons: Vec<SharedString> = vec!["draft".into(), "explain".into(), "translate".into()];
+        if !self.settings.borrow().inbox_url.is_empty() {
+            icons.push("vocab".into());
+        }
+        let size = bar_size(icons.len());
+        self.bar.set_actions(ModelRc::new(VecModel::from(icons)));
         let display = platform::display_at(pointer);
-        let at = bar_position(display.to_logical(pointer), BAR_SIZE, display.logical_work_area());
+        let at = bar_position(display.to_logical(pointer), size, display.logical_work_area());
         self.bar.window().set_position(platform::window_position(display.to_screen(at), &display));
         let _ = self.bar.show();
         platform::configure_bar(self.bar.window());
@@ -484,10 +517,19 @@ impl App {
 
     // MARK: Running an action
 
-    fn run_action(self: &Rc<Self>, action: ActionId) {
-        self.log("action-clicked", &[("action", action.key().into())]);
+    /// A session or the vocabulary form is open, which a message must not replace.
+    fn popup_busy(&self) -> bool {
+        self.popup_open.get() && (self.session.borrow().is_some() || self.vocab_open.get())
+    }
+
+    fn run_action(self: &Rc<Self>, target: Target) {
+        let key = match target {
+            Target::Action(action) => action.key(),
+            Target::Vocab => "vocab",
+        };
+        self.log("action-clicked", &[("action", key.into())]);
         self.hide_bar();
-        if self.popup_open.get() && self.session.borrow().is_some() {
+        if self.popup_busy() {
             self.focus_popup();
             return;
         }
@@ -541,7 +583,10 @@ impl App {
                         ],
                     );
                     match capture {
-                        Capture::Text(text) => app.start_session(action, text),
+                        Capture::Text(text) => match target {
+                            Target::Action(action) => app.start_session(action, text),
+                            Target::Vocab => app.start_vocab(&text),
+                        },
                         Capture::NoText => app.show_message(
                             PopupMessage {
                                 title: "The selection cannot be read",
@@ -690,10 +735,148 @@ impl App {
         });
     }
 
+    // MARK: Add to vocabulary
+
+    fn start_vocab(self: &Rc<Self>, selected_text: &str) {
+        let settings = self.settings.borrow().clone();
+        let phrase = vocab::phrase_from_selection(selected_text);
+        self.session_number.set(self.session_number.get() + 1);
+        self.vocab_open.set(true);
+        self.vocab_saving.set(false);
+        self.vocab_saved.set(false);
+        let popup = &self.popup;
+        popup.set_kind("vocab".into());
+        popup.set_vocab_phrase(phrase.as_str().into());
+        popup.set_vocab_meaning(SharedString::new());
+        popup.set_vocab_example(SharedString::new());
+        popup.set_vocab_example_vi(SharedString::new());
+        popup.set_vocab_language(settings.primary_language.as_str().into());
+        popup.set_vocab_suggesting(true);
+        popup.set_vocab_error(SharedString::new());
+        self.refresh_vocab();
+        self.open_popup(self.selection_point.get());
+        popup.invoke_focus_vocab();
+
+        let number = self.session_number.get();
+        let options = CliOptions {
+            executable: settings.cli_path,
+            prefix_args: Vec::new(),
+            model: Model::Haiku.key().into(),
+            system: vocab::suggestion_system_prompt(&settings.primary_language),
+            prompt: crate::prompt::user_prompt(&phrase, None),
+            cwd: self.data_dir.clone(),
+            inactivity: CLI_INACTIVITY,
+        };
+        let mut reply = String::new();
+        let cli = run_cli(options, move |event| match event {
+            CliEvent::Text(text) => reply.push_str(&text),
+            CliEvent::Done(result) => {
+                let outcome = match result {
+                    Ok(()) => vocab::parse_suggestion(&reply).ok_or_else(|| "unreadable reply".to_string()),
+                    Err(error) => Err(error.message),
+                };
+                post(move |app| app.on_vocab_suggestion(number, outcome));
+            }
+        });
+        if let Some(previous) = self.vocab_cli.borrow_mut().replace(cli) {
+            previous.cancel();
+        }
+    }
+
+    /// Fills only the fields the user has not typed into while waiting.
+    fn on_vocab_suggestion(&self, number: u64, outcome: Result<Suggestion, String>) {
+        if self.session_number.get() != number || !self.vocab_open.get() {
+            return;
+        }
+        self.vocab_cli.borrow_mut().take();
+        let popup = &self.popup;
+        popup.set_vocab_suggesting(false);
+        match outcome {
+            Ok(suggestion) => {
+                let fill = |current: SharedString, value: &str, set: &dyn Fn(SharedString)| {
+                    if current.trim().is_empty() {
+                        set(value.into());
+                    }
+                };
+                fill(popup.get_vocab_meaning(), &suggestion.meaning, &|v| popup.set_vocab_meaning(v));
+                fill(popup.get_vocab_example(), &suggestion.example, &|v| popup.set_vocab_example(v));
+                fill(popup.get_vocab_example_vi(), &suggestion.example_vi, &|v| popup.set_vocab_example_vi(v));
+                self.log("vocab-suggested", &[]);
+            }
+            Err(error) => self.log("vocab-suggestion-failed", &[("error", error)]),
+        }
+        self.refresh_vocab();
+    }
+
+    fn vocab_entry(&self) -> Entry {
+        let popup = &self.popup;
+        Entry {
+            phrase: popup.get_vocab_phrase().to_string(),
+            meaning: popup.get_vocab_meaning().to_string(),
+            example: popup.get_vocab_example().to_string(),
+            example_vi: popup.get_vocab_example_vi().to_string(),
+        }
+    }
+
+    fn refresh_vocab(&self) {
+        let popup = &self.popup;
+        popup.set_vocab_saving(self.vocab_saving.get());
+        popup.set_vocab_saved(self.vocab_saved.get());
+        popup.set_vocab_can_save(self.vocab_entry().is_complete() && !self.vocab_saved.get());
+    }
+
+    fn save_vocab(&self) {
+        if !self.vocab_open.get() || self.vocab_saving.get() || self.vocab_saved.get() {
+            return;
+        }
+        let entry = self.vocab_entry();
+        if !entry.is_complete() {
+            return;
+        }
+        let url = self.settings.borrow().inbox_url.clone();
+        if url.is_empty() {
+            self.popup.set_vocab_error("Set the Inbox API URL in Settings first.".into());
+            return;
+        }
+        self.vocab_saving.set(true);
+        self.popup.set_vocab_error(SharedString::new());
+        self.refresh_vocab();
+        let number = self.session_number.get();
+        thread::spawn(move || {
+            let result = vocab::post_entry(&url, &entry);
+            post(move |app| app.on_vocab_saved(number, result));
+        });
+    }
+
+    fn on_vocab_saved(&self, number: u64, result: Result<(), String>) {
+        if self.session_number.get() != number || !self.vocab_open.get() {
+            return;
+        }
+        self.vocab_saving.set(false);
+        match result {
+            Ok(()) => {
+                self.vocab_saved.set(true);
+                self.log("vocab-saved", &[]);
+                Timer::single_shot(VOCAB_SAVED_CLOSE_DELAY, move || {
+                    with_app(|app| {
+                        if app.session_number.get() == number && app.vocab_open.get() {
+                            app.close_popup();
+                        }
+                    })
+                });
+            }
+            Err(error) => {
+                self.log("vocab-save-failed", &[("error", error.clone())]);
+                self.popup.set_vocab_error(format!("{error} Your entry is kept; try again.").into());
+            }
+        }
+        self.refresh_vocab();
+    }
+
     // MARK: Popup
 
     fn show_message(&self, message: PopupMessage, anchor: Option<Point>) {
-        if self.popup_open.get() && self.session.borrow().is_some() {
+        if self.popup_busy() {
             return;
         }
         self.popup.set_kind("message".into());
@@ -752,6 +935,10 @@ impl App {
         let _ = self.popup.hide();
         self.session.borrow_mut().take();
         if let Some(cli) = self.cli.borrow_mut().take() {
+            cli.cancel();
+        }
+        self.vocab_open.set(false);
+        if let Some(cli) = self.vocab_cli.borrow_mut().take() {
             cli.cancel();
         }
         self.copied.set(false);
@@ -820,6 +1007,7 @@ impl App {
         window.set_primary_language(settings.primary_language.as_str().into());
         window.set_secondary_language(settings.secondary_language.as_str().into());
         window.set_cli_path(settings.cli_path.as_str().into());
+        window.set_inbox_url(settings.inbox_url.as_str().into());
     }
 
     fn read_settings_form(&self) -> Settings {
@@ -832,6 +1020,7 @@ impl App {
             secondary_language: window.get_secondary_language().trim().to_string(),
             auto_bar: window.get_auto_bar(),
             style_template_installed: self.settings.borrow().style_template_installed,
+            inbox_url: window.get_inbox_url().trim().to_string(),
         }
     }
 
@@ -846,12 +1035,19 @@ impl App {
         .into_iter()
         .find(|(empty, _)| *empty)
         .map(|(_, name)| name);
+        let problem = match missing {
+            Some(name) => Some(format!("{name} is required.")),
+            None if !settings::is_inbox_url(&next.inbox_url) => {
+                Some("Inbox API URL must start with https:// or http://.".to_string())
+            }
+            None => None,
+        };
         let changed = next != *self.settings.borrow();
         let window = &self.settings_window;
-        window.set_can_save(changed && missing.is_none());
-        match (missing, status) {
-            (Some(name), _) => {
-                window.set_status(format!("{name} is required.").into());
+        window.set_can_save(changed && problem.is_none());
+        match (problem, status) {
+            (Some(problem), _) => {
+                window.set_status(problem.into());
                 window.set_status_kind("error".into());
             }
             (None, Some((text, kind))) => {
