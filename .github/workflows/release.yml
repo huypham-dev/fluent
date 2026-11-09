@@ -72,12 +72,17 @@ jobs:
       - run: cargo test --locked
       - run: cargo build --release --locked --target x86_64-pc-windows-msvc
 
-      # The runner image comes with NSIS.
+      # Newer runner images no longer ship NSIS, so install it when it is missing.
       - name: Build the installer
         shell: bash
         env:
           TAG: ${{ github.ref_name }}
         run: |
+          nsis="/c/Program Files (x86)/NSIS"
+          if ! command -v makensis >/dev/null && [ ! -x "$nsis/makensis.exe" ]; then
+            choco install nsis -y --no-progress
+          fi
+          export PATH="$nsis:$PATH"
           mkdir -p release
           makensis "/DVERSION=${TAG#v}" installer/fluent.nsi
 
