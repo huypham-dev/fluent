@@ -27,6 +27,8 @@ jobs:
             echo "::error::Tag $TAG does not match Cargo.toml version $crate_version"
             exit 1
           fi
+          # A prerelease (v1.2.3-beta.1) goes to one tester, so the README keeps the stable links.
+          case "$version" in *-*) exit 0 ;; esac
           for asset in "Fluent-$version-arm64.dmg" "Fluent-$version.dmg" "Fluent.Setup.$version.exe"; do
             if ! grep -qF "releases/download/$TAG/$asset" README.md; then
               echo "::error::README.md has no download link for $asset in $TAG"
@@ -145,14 +147,18 @@ jobs:
 
       # A draft stays out of /releases/latest, so the install scripts keep serving
       # the current release until the draft is reviewed and published by hand.
+      # A prerelease never becomes latest, so only someone given its link installs it.
       - name: Create the draft release
         env:
           TAG: ${{ github.ref_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
           version="${TAG#v}"
+          prerelease=()
+          case "$version" in *-*) prerelease=(--prerelease) ;; esac
           gh release create "$TAG" \
             --draft \
+            "${prerelease[@]}" \
             --verify-tag \
             --title "$TAG" \
             --notes-file notes.md \
