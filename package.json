@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "start": "npm run build && electron .",
+    "demo": "electron scripts/demo/render.js",
     "dist:mac": "npm run build && electron-builder --mac dmg --arm64 --x64",
     "dist:win": "npm run build && electron-builder --win nsis --x64"
   },
@@ -60,6 +61,7 @@
     "@types/node": "26.6.6",
     "electron": "45.2.3",
     "electron-builder": "26.18.0",
+    "gifenc": "1.0.3",
     "typescript": "7.0.2",
     "vitest": "5.1.0"
   }

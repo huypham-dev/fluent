@@ -4,6 +4,8 @@ A tray app for macOS and Windows that acts on selected text in any app. Select t
 choose an action, and read the result in a popup. The app never pastes or sends
 anything.
 
+![Fluent drafts a reply, explains a message and translates it, each from a text selection](docs/demo.gif)
+
 | Action | Result |
 |---|---|
 | Draft reply | A reply in the language of the selected text, using your style file. You can edit it. |
