@@ -88,6 +88,23 @@ fn session(popup: &Popup, action: &str, heading: &str, editable: bool, label: &s
     popup.set_input_label(label.into());
     popup.set_failed(false);
     popup.set_copied(false);
+    let (source, quick): (&str, &[&str]) = match action {
+        "draft" => (
+            "Can you review my PR this afternoon? It touches the migration step.",
+            &["Shorter", "Friendlier", "More formal", "Decline politely"],
+        ),
+        "explain" => (
+            "The deploy failed because of a race condition in the migration step.",
+            &["Simpler", "Give an example", "Shorter"],
+        ),
+        _ => (
+            "Mình đã deploy bản fix lên staging, bạn test lại rồi merge PR giúp mình nhé",
+            &["More casual", "More formal", "Shorter", "Friendlier"],
+        ),
+    };
+    popup.set_source(source.into());
+    let quick: Vec<slint::SharedString> = quick.iter().map(|q| (*q).into()).collect();
+    popup.set_quick(ModelRc::new(VecModel::from(quick)));
 }
 
 fn main() {
@@ -110,10 +127,10 @@ fn main() {
     popup.set_shown(true);
     std::thread::sleep(std::time::Duration::from_millis(300));
     let popup_window = take();
-    let size = (536.0, 386.0);
+    let size = (536.0, 446.0);
 
     // A draft streaming in, then ready, then copied: the frames of the GIF.
-    session(&popup, "draft", "Draft reply", true, "Rewrite: shorter, decline politely…");
+    session(&popup, "draft", "Draft reply", true, "Or say how to rewrite it…");
     let mut frames = Vec::new();
     let words: Vec<&str> = REPLY.split(' ').collect();
     for count in (0..=words.len()).step_by(3) {
@@ -145,7 +162,7 @@ fn main() {
     frames.push((render(&popup_window, size, 1.5), 150));
 
     // A failed run that needs the settings.
-    session(&popup, "translate", "Translate", true, "Rewrite: more casual, shorter…");
+    session(&popup, "translate", "Translate", false, "Or say how to rewrite it…");
     popup.set_side("".into());
     popup.set_failed(true);
     popup.set_result("".into());
@@ -163,10 +180,10 @@ fn main() {
 
     // Dark mode.
     popup.global::<Palette>().set_color_scheme(slint::language::ColorScheme::Dark);
-    session(&popup, "translate", "Translate", true, "Rewrite: more casual, shorter…");
+    session(&popup, "translate", "Translate", false, "Or say how to rewrite it…");
     popup.set_generating(false);
     popup.set_result("I deployed the fix to staging. Can you test it again and then merge the PR for me?".into());
-    popup.set_hints(hints(&[("⏎", "Copy"), ("⇧⏎", "New line"), ("esc", "Close")]));
+    popup.set_hints(hints(&[("esc", "Close")]));
     save_png(&render(&popup_window, size, 2.0), &out.join("7-translate-dark.png"));
     frames.push((render(&popup_window, size, 1.5), 150));
 

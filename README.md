@@ -10,7 +10,7 @@ anything.
 |---|---|
 | Draft reply | A reply in the language of the selected text, using your style file. You can edit it. |
 | Explain | An explanation in your primary language. It is read-only, and you can ask follow-up questions. |
-| Translate | Primary language to secondary language; any other language to primary. You can edit it. |
+| Translate | Primary language to secondary language; any other language to primary. It is read-only, and you can ask for a rewrite. |
 
 Selected text is sent to Anthropic through the Claude Code CLI, only after you choose
 an action. The app stores no selected text or results.
@@ -153,7 +153,7 @@ is not used by other actions. It is at:
 
 | Key | In the result | In the input field |
 |---|---|---|
-| Enter | Copy and close (Draft reply and Translate) | Send the rewrite instruction or question |
+| Enter | Copy and close (Draft reply) | Send the rewrite instruction or question |
 | Shift+Enter | New line | |
 | Esc | Close | Close |
 

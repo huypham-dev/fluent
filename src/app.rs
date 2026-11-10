@@ -26,7 +26,7 @@ use std::time::{Duration, Instant};
 use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{TrayIcon, TrayIconBuilder};
 
-const COPIED_CLOSE_DELAY: Duration = Duration::from_millis(450);
+const COPIED_CLOSE_DELAY: Duration = Duration::from_millis(700);
 const BAR_TIMEOUT: Duration = Duration::from_millis(4000);
 const HOTKEY_KEY_GRACE: Duration = Duration::from_millis(600);
 const HOTKEY_RELEASE_TIMEOUT: Duration = Duration::from_millis(1000);
@@ -569,6 +569,7 @@ impl App {
     }
 
     fn start_session(self: &Rc<Self>, action: ActionId, selected_text: String) {
+        let source = one_line(&selected_text);
         let settings = self.settings.borrow().clone();
         let style = self.style();
         let mut session = ActionSession::new(SessionConfig {
@@ -589,6 +590,9 @@ impl App {
         self.popup.set_action(action.key().into());
         self.popup.set_editable(info.editable);
         self.popup.set_input_label(info.input_label.into());
+        self.popup.set_source(source.into());
+        let quick: Vec<SharedString> = info.quick.iter().map(|q| (*q).into()).collect();
+        self.popup.set_quick(ModelRc::new(VecModel::from(quick)));
         self.render_session();
         self.open_popup(self.selection_point.get());
         self.launch(run);
@@ -897,6 +901,11 @@ fn kind_name(text: bool) -> &'static str {
 }
 
 /// Clicking the bar can make this app frontmost on macOS, which would send the copy here.
+/// Collapses line breaks and runs of spaces, for a one-line preview.
+fn one_line(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
 fn return_focus_to(source: Option<&str>) -> bool {
     if !IS_MAC {
         return false;

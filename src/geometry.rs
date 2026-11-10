@@ -30,7 +30,7 @@ pub const BAR_SIZE: Size = Size { width: 132.0, height: 40.0 };
 const POINTER_GAP: f64 = 12.0;
 
 /// The visible card, and the transparent room around it for the arrow and the shadow.
-pub const POPUP_CARD: Size = Size { width: 500.0, height: 340.0 };
+pub const POPUP_CARD: Size = Size { width: 500.0, height: 400.0 };
 pub const POPUP_MARGIN: f64 = 18.0;
 pub const POPUP_ARROW: f64 = 10.0;
 pub const POPUP_WINDOW: Size =

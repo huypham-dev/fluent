@@ -11,22 +11,31 @@ pub struct ActionInfo {
     pub title: &'static str,
     pub editable: bool,
     pub input_label: &'static str,
+    /// One-click rewrite instructions shown as chips above the input.
+    pub quick: &'static [&'static str],
 }
 
 impl ActionId {
     pub fn info(self) -> ActionInfo {
         match self {
-            ActionId::Draft => {
-                ActionInfo {
-                    title: "Draft reply", editable: true, input_label: "Rewrite: shorter, decline politely…"
-                }
-            }
-            ActionId::Explain => {
-                ActionInfo { title: "Explain", editable: false, input_label: "Ask a follow-up question…" }
-            }
-            ActionId::Translate => {
-                ActionInfo { title: "Translate", editable: true, input_label: "Rewrite: more casual, shorter…" }
-            }
+            ActionId::Draft => ActionInfo {
+                title: "Draft reply",
+                editable: true,
+                input_label: "Or say how to rewrite it…",
+                quick: &["Shorter", "Friendlier", "More formal", "Decline politely"],
+            },
+            ActionId::Explain => ActionInfo {
+                title: "Explain",
+                editable: false,
+                input_label: "Ask a follow-up question…",
+                quick: &["Simpler", "Give an example", "Shorter"],
+            },
+            ActionId::Translate => ActionInfo {
+                title: "Translate",
+                editable: false,
+                input_label: "Or say how to rewrite it…",
+                quick: &["More casual", "More formal", "Shorter", "Friendlier"],
+            },
         }
     }
 
@@ -54,10 +63,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn explain_is_read_only_and_the_others_editable() {
-        assert!(!ActionId::Explain.info().editable);
+    fn only_draft_is_editable() {
         assert!(ActionId::Draft.info().editable);
-        assert!(ActionId::Translate.info().editable);
+        assert!(!ActionId::Explain.info().editable);
+        assert!(!ActionId::Translate.info().editable);
     }
 
     #[test]

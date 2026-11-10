@@ -28,8 +28,8 @@ fn main() {
     popup.set_side("below".into());
     popup.set_action("translate".into());
     popup.set_heading("Translate".into());
-    popup.set_editable(true);
-    popup.set_input_label("Rewrite: more casual, shorter…".into());
+    popup.set_editable(false);
+    popup.set_input_label("Or say how to rewrite it…".into());
     popup.set_result("Deploy bị lỗi do race condition ở bước migration.".into());
     popup.show().unwrap();
     popup.set_shown(true);
