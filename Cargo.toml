@@ -40,5 +40,6 @@ strip = true
 panic = "abort"
 
 [dev-dependencies]
+color_quant = "1.1.0"
 gif = "0.14.2"
 slint = { version = "1.18.1", default-features = false, features = ["std", "renderer-software", "compat-1-2"] }
